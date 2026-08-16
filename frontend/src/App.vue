@@ -36,13 +36,16 @@ function applyWallpaper() {
   }
 }
 
+function applyTheme(theme: 'light' | 'dark') {
+  document.documentElement.classList.toggle('dark', theme === 'dark')
+}
+
 onMounted(() => {
   ui.setLang(ui.lang as Lang)
   applyWallpaper()
+  applyTheme(ui.theme)
 })
 
 watch(() => ui.wallpaper, applyWallpaper)
-watch(() => ui.theme, (v) => {
-  document.documentElement.classList.toggle('dark', v === 'dark')
-})
+watch(() => ui.theme, (v) => applyTheme(v))
 </script>
