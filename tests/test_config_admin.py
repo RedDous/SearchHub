@@ -56,7 +56,7 @@ def test_add_provider_key_uses_next_index(cs):
         cs.add_provider_key("exa", "   ")
 
 
-def test_remove_provider_key_renumbers(cs):
+def test_remove_provider_key_keeps_numbering(cs):
     cs.save_secrets({"EXA_KEY_1": "k1", "EXA_KEY_2": "k2", "EXA_KEY_3": "k3"})
     cs.remove_provider_key("exa", 0)
     assert cs.provider_keys("exa") == ["k2", "k3"]
