@@ -651,23 +651,25 @@ def test_expired_session_rejected():
     assert store.verify(token) is None
 ```
 
-`tests/conftest.py` 追加 fixture（放在 `client` fixture 之后）：
+`tests/conftest.py` 追加 fixture（放在 `client` fixture 之后；注意当前 `app.py` 未设置 `app.state.data_dir`，fixture 直接用自己的 `data_dir` fixture）：
 ```python
 @pytest.fixture
-def admin_client(app):
+def admin_client(data_dir):
     from fastapi.testclient import TestClient
 
+    from searchhub.api.app import create_app
     from searchhub.config import ConfigService
 
-    cs = ConfigService(app.state.data_dir)
+    cs = ConfigService(data_dir)
     cs.load()
     cs.set_admin_password("testpass123")
+    app = create_app(data_dir)
     with TestClient(app) as c:
         r = c.post("/api/admin/login", json={"username": "admin", "password": "testpass123"})
         assert r.status_code == 200, r.text
         yield c
 ```
-> 注意：`app` fixture 是未进入 lifespan 的 create_app 实例；TestClient 进入时 lifespan 才跑。`app.state.data_dir` 在 create_app 中已设置（不进 lifespan 也可读）。lifespan 内会执行"首次无密码→设默认密码"逻辑（Task 8 实现），此处已预先 `set_admin_password`，故 lifespan 不会覆盖。
+> 注意：TestClient 进入时 lifespan 才跑。lifespan 内会执行"首次无密码→设默认密码"逻辑（Task 8 实现），此处已预先 `set_admin_password`，故 lifespan 不会覆盖。
 
 - [ ] **Step 2: 运行确认失败**
 
@@ -1406,7 +1408,7 @@ def test_created_token_works_on_public_api(admin_client):
     assert resp.status_code == 200  # 无供应商也返回 200 success=false
 
 
-def test_revoked_token_rejected(admin_client, app, data_dir):
+def test_revoked_token_rejected(admin_client, data_dir):
     from searchhub.config import ConfigService
 
     r = admin_client.post("/api/admin/tokens", json={"name": "agent"})
@@ -1415,7 +1417,6 @@ def test_revoked_token_rejected(admin_client, app, data_dir):
     resp = admin_client.get("/v1/search", params={"q": "x"},
                             headers={"Authorization": f"Bearer {raw}"})
     assert resp.status_code == 200
-    admin_client.delete(f"/api/admin/tokens/{token_id}")
     cs = ConfigService(data_dir)
     cs.load()
     cfg = cs.get()
@@ -1854,6 +1855,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         app.state.engine = engine
         app.state.http = http
         app.state.history = history
+        app.state.data_dir = data_dir
         app.state.session_store = SessionStore(config.session_secret())
         cleanup_task = asyncio.create_task(_cleanup_loop(history, cache, config))
         yield
