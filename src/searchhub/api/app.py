@@ -11,7 +11,9 @@ from fastapi.responses import JSONResponse
 
 from searchhub import __version__
 from searchhub.api.admin.config_routes import router as admin_config_router
+from searchhub.api.admin.keys_routes import router as admin_keys_router
 from searchhub.api.admin.session import SessionStore, router as admin_session_router
+from searchhub.api.admin.token_routes import router as admin_token_router
 from searchhub.api.routes_extract import router as extract_router
 from searchhub.api.routes_health import router as health_router
 from searchhub.api.routes_providers import router as providers_router
@@ -70,4 +72,6 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.include_router(providers_router)
     app.include_router(admin_session_router)
     app.include_router(admin_config_router)
+    app.include_router(admin_keys_router)
+    app.include_router(admin_token_router)
     return app
