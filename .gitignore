@@ -1,5 +1,9 @@
 .codegraph/
-.superpowers/
+
+# 内部工程文档（specs/plans 版本化；sdd/ 为 SDD 瞬时工作区，忽略）
+.superpowers/*
+!.superpowers/specs/
+!.superpowers/plans/
 
 # Python
 .venv/
