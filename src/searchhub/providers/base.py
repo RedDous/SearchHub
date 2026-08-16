@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
@@ -48,3 +49,18 @@ class Provider(ABC):
 
     def truncate(self, text: str, max_chars: int) -> str:
         return text[:max_chars] if max_chars and len(text) > max_chars else text
+
+    def _use_key(self):
+        @asynccontextmanager
+        async def ctx():
+            if self.key_pool is None:
+                yield None
+                return
+            async with self.key_pool.use() as key:
+                yield key
+
+        return ctx()
+
+    def _report(self, key: str | None, status: int | None) -> None:
+        if key is not None and self.key_pool is not None:
+            self.key_pool.report_error(key, status)

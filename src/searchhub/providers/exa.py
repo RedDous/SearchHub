@@ -35,23 +35,6 @@ class ExaProvider(Provider):
                 raise ProviderError(self.id, f"exa http {resp.status_code}", status=resp.status_code)
         return mapper(resp.json(), **kw)
 
-    def _use_key(self):
-        from contextlib import asynccontextmanager
-
-        @asynccontextmanager
-        async def ctx():
-            if self.key_pool is None:
-                yield None
-                return
-            async with self.key_pool.use() as key:
-                yield key
-
-        return ctx()
-
-    def _report(self, key: str | None, status: int | None) -> None:
-        if key is not None and self.key_pool is not None:
-            self.key_pool.report_error(key, status)
-
     def _map_search(self, data: dict, limit: int) -> list[SearchItem]:
         items = []
         for i, r in enumerate(data.get("results", [])):
