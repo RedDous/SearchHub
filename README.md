@@ -67,3 +67,21 @@ auth:
 ```bash
 .venv/bin/pytest
 ```
+
+## 前端（M2B）
+
+管理后台为 Vue3 SPA，位于 `frontend/`。
+
+开发：启动后端（`python -m searchhub`，端口 8000），然后
+```bash
+cd frontend && npm install && npm run dev
+```
+Vite dev server（默认 5173）代理 `/api`、`/v1`、`/healthz` 到 `127.0.0.1:8000`，同源 Cookie 会话直接可用。
+
+构建：
+```bash
+cd frontend && npm run build
+```
+产物 `frontend/dist` 由后端自动托管（`SEARCHHUB_WEB_DIST` 可覆盖路径；目录不存在则不挂载，仅 API）。SPA fallback 仅作用于非 API 路径。
+
+测试：`cd frontend && npm test`（vitest 单测）；后端回归 `pytest`。

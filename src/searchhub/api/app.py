@@ -10,7 +10,8 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from searchhub import __version__
 from searchhub.api.admin.config_routes import router as admin_config_router
@@ -106,4 +107,24 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.include_router(admin_keys_router)
     app.include_router(admin_token_router)
     app.include_router(admin_stats_router)
+
+    dist = Path(os.environ.get("SEARCHHUB_WEB_DIST", "")) if os.environ.get("SEARCHHUB_WEB_DIST") else Path(__file__).resolve().parents[3] / "frontend" / "dist"
+    if dist.is_dir():
+        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+        @app.get("/{full_path:path}", include_in_schema=False)
+        async def spa_fallback(full_path: str):
+            if full_path.startswith(("api/", "v1/", "healthz", "readyz")):
+                raise HTTPException(404, "not found")
+            if any(seg == ".." for seg in full_path.split("/")):
+                raise HTTPException(404, "not found")
+            target = dist / full_path
+            if full_path and target.is_file():
+                return FileResponse(target)
+            return FileResponse(dist / "index.html")
+
+        @app.get("/", include_in_schema=False)
+        async def spa_index():
+            return FileResponse(dist / "index.html")
+
     return app
