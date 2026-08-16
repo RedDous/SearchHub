@@ -28,6 +28,22 @@ def test_keys_list_add_remove(admin_client):
     assert r.status_code == 404
 
 
+def test_keys_status_populated(admin_client, monkeypatch):
+    engine = admin_client.app.state.engine
+    monkeypatch.setattr(engine, "provider_status", lambda: [
+        {"id": "exa", "capabilities": ["search"], "keys": [
+            {"key": "sekri****-123", "cooling_until": 0.0, "in_flight": 1, "ok": True}]}])
+    admin_client.post("/api/admin/providers",
+                      json={"id": "exa", "capabilities": ["search"]})
+    admin_client.post("/api/admin/providers/exa/keys", json={"key": "sekrit-123"})
+    r = admin_client.get("/api/admin/providers/exa/keys")
+    keys = r.json()["data"]["keys"]
+    assert len(keys) == 1
+    assert keys[0]["status"] is not None
+    assert keys[0]["status"]["in_flight"] == 1
+    assert keys[0]["status"]["ok"] is True
+
+
 def test_token_create_list_delete(admin_client):
     r = admin_client.get("/api/admin/tokens")
     assert r.json()["data"]["tokens"] == []

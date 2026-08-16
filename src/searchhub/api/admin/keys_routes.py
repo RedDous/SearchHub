@@ -25,13 +25,13 @@ def _mask(key: str) -> str:
 async def list_keys(provider_id: str, request: Request):
     svc = request.app.state.engine.config
     keys = svc.provider_keys(provider_id)
-    pool_status = {}
+    pool_status = []
     for entry in request.app.state.engine.provider_status():
         if entry["id"] == provider_id:
-            pool_status = {s["key"]: s for s in entry.get("keys", [])}
+            pool_status = entry.get("keys", [])
     result = []
     for i, k in enumerate(keys):
-        status = pool_status.get(k) if k in pool_status else None
+        status = pool_status[i] if i < len(pool_status) else None
         result.append({"index": i, "masked": _mask(k), "status": status})
     return {"success": True, "data": {"keys": result}}
 
