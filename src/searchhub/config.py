@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import hmac as _hmac
 import os
 import re
+import secrets as _secrets
 import shutil
 from pathlib import Path
 from typing import Any, Literal
@@ -12,6 +15,24 @@ from pydantic import BaseModel, Field
 CAPABILITIES = ("search", "extract")
 _KEY_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 _BACKUP_COUNT = 5
+
+
+def _scrypt_hash(password: str) -> str:
+    salt = _secrets.token_bytes(16)
+    digest = hashlib.scrypt(password.encode(), salt=salt, n=2 ** 14, r=8, p=1)
+    return f"scrypt${2 ** 14}${8}${1}${salt.hex()}${digest.hex()}"
+
+
+def _scrypt_verify(password: str, stored: str) -> bool:
+    try:
+        algo, n, r, p, salt_hex, digest_hex = stored.split("$")
+        if algo != "scrypt":
+            return False
+        digest = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt_hex),
+                                n=int(n), r=int(r), p=int(p))
+        return _hmac.compare_digest(digest.hex(), digest_hex)
+    except Exception:
+        return False
 
 
 class KeyPoolConfig(BaseModel):
@@ -46,16 +67,32 @@ class CacheConfig(BaseModel):
 class TokenEntry(BaseModel):
     name: str
     token_hash: str
+    id: str = ""
+    created_at: float = 0.0
+    revoked: bool = False
 
 
 class AuthConfig(BaseModel):
     tokens: list[TokenEntry] = Field(default_factory=list)
 
 
+class AdminConfig(BaseModel):
+    username: str = "admin"
+    password_hash: str = ""
+    session_ttl_hours: int = Field(default=24, ge=1, le=720)
+
+
+class HistoryConfig(BaseModel):
+    retention_days: int = Field(default=30, ge=1, le=3650)
+    redact_queries: bool = False
+
+
 class AppConfig(BaseModel):
     strategy: StrategyConfig = StrategyConfig()
     cache: CacheConfig = CacheConfig()
     auth: AuthConfig = AuthConfig()
+    admin: AdminConfig = AdminConfig()
+    history: HistoryConfig = HistoryConfig()
     providers: list[ProviderConfig] = Field(default_factory=list)
 
     def provider(self, provider_id: str) -> ProviderConfig | None:
@@ -102,6 +139,67 @@ class ConfigService:
             if k.startswith(prefix) and k[len(prefix):].isdigit()
         ]
         return [v for _, v in sorted(pairs)]
+
+    def verify_admin_password(self, password: str) -> bool:
+        stored = self.get().admin.password_hash
+        return bool(stored) and _scrypt_verify(password, stored)
+
+    def set_admin_password(self, password: str) -> None:
+        cfg = self.get()
+        cfg.admin.password_hash = _scrypt_hash(password)
+        self.save_config(cfg)
+
+    def session_secret(self) -> bytes:
+        path = self.data_dir / "session_secret"
+        if not path.exists():
+            path.write_text(_secrets.token_hex(32))
+            path.chmod(0o600)
+        return bytes.fromhex(path.read_text().strip())
+
+    def save_secrets(self, secrets_map: dict[str, str]) -> None:
+        self._secrets = dict(secrets_map)
+        tmp = self.secrets_path.with_name(self.secrets_path.name + ".tmp")
+        try:
+            with tmp.open("w") as f:
+                for k, v in sorted(secrets_map.items()):
+                    f.write(f"{k}={v}\n")
+            os.replace(tmp, self.secrets_path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
+        self.secrets_path.chmod(0o600)
+        self._mtime = self._stat()
+
+    def add_provider_key(self, provider_id: str, key: str) -> None:
+        key = key.strip()
+        if not key:
+            raise ValueError("key must not be empty")
+        prefix = f"{provider_id.upper()}_KEY_"
+        secrets_map = dict(self._secrets)
+        existing = [k for k in secrets_map if k.startswith(prefix) and k[len(prefix):].isdigit()]
+        next_idx = max([int(k[len(prefix):]) for k in existing], default=0) + 1
+        secrets_map[f"{prefix}{next_idx}"] = key
+        self.save_secrets(secrets_map)
+
+    def remove_provider_key(self, provider_id: str, index: int) -> None:
+        prefix = f"{provider_id.upper()}_KEY_"
+        pairs = sorted(
+            (int(k[len(prefix):]), k)
+            for k in self._secrets
+            if k.startswith(prefix) and k[len(prefix):].isdigit()
+        )
+        if index < 0 or index >= len(pairs):
+            raise IndexError("key index out of range")
+        removed_key = pairs[index][1]
+        secrets_map = {k: v for k, v in self._secrets.items() if k != removed_key}
+        self.save_secrets(secrets_map)
+
+    @property
+    def updated_at(self) -> float:
+        try:
+            return self.config_path.stat().st_mtime
+        except FileNotFoundError:
+            return 0.0
 
     def save_config(self, cfg: AppConfig) -> None:
         for p in cfg.providers:
