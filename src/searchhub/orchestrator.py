@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import logging
 import time
 from typing import Any
 
@@ -15,13 +17,18 @@ from searchhub.models import (ExtractItem, ExtractResponse, SearchData,
 from searchhub.providers import build_registry, registry_for_capability
 from searchhub.providers.base import Provider
 from searchhub.storage.cache import CacheRepo
+from searchhub.storage.history import RequestLogRepo
+
+logger = logging.getLogger(__name__)
 
 
 class SearchHubEngine:
-    def __init__(self, config: ConfigService, cache: CacheRepo | None, http: httpx.AsyncClient):
+    def __init__(self, config: ConfigService, cache: CacheRepo | None,
+                 http: httpx.AsyncClient, history: RequestLogRepo | None = None):
         self.config = config
         self.cache = cache
         self.http = http
+        self.history = history
         self._registry: dict[str, Provider] = {}
         self._version = -1
         self.stats: dict[str, dict[str, Any]] = {}
@@ -52,63 +59,76 @@ class SearchHubEngine:
 
     async def search(self, query: str, limit: int = 5, providers: str | None = None,
                      strategy: str | None = None, cache: bool = True,
-                     timeout: float | None = None) -> SearchResponse:
+                     timeout: float | None = None, *, token_name: str = "") -> SearchResponse:
         start = time.monotonic()
         cfg = self.config.get()
         providers_list = self._filter(self._registry_for("search"), providers)
-        if not providers_list:
-            return SearchResponse(success=False, data=SearchData(web=[]),
-                                  error=f"no search provider enabled",
-                                  meta={"took_ms": 0})
         mode = strategy or cfg.strategy.default_mode
         t = timeout or cfg.strategy.timeout_s
         cache_key = search_cache_key(query, limit, providers or "all", mode)
         outcomes: list[Outcome] = []
-        if self.cache and cache:
+        resp: SearchResponse | None = None
+        if not providers_list:
+            resp = SearchResponse(success=False, data=SearchData(web=[]),
+                                  error="no search provider enabled",
+                                  meta={"took_ms": 0})
+        elif self.cache and cache:
             hit = await self.cache.get(cache_key)
             if hit is not None:
                 items = [SearchItem(**d) for d in json.loads(hit)]
-                return SearchResponse(success=True, data=SearchData(web=items),
+                resp = SearchResponse(success=True, data=SearchData(web=items),
                                       meta={"took_ms": 0, "cached": True})
-        if mode == "fanout":
-            calls = [(p, p.search(query, min(limit, p.cfg.max_results))) for p in providers_list]
-            outcomes = await fanout(calls, t)
-        else:
-            def call(p: Provider):
-                return p.search(query, min(limit, p.cfg.max_results))
-
-            if mode == "rotation":
-                outcomes = [await rotation(providers_list, "search", t, call)]
+        if resp is None:
+            if mode == "fanout":
+                calls = [(p, p.search(query, min(limit, p.cfg.max_results)))
+                         for p in providers_list]
+                outcomes = await fanout(calls, t)
             else:
-                outcomes = [await primary_fallback(providers_list, "search", t, call)]
-        for o in outcomes:
-            self._record(o.provider_id, o.error is None, o.took_ms)
-        if all(o.error for o in outcomes):
-            details = "; ".join(f"{o.provider_id}: {o.error}" for o in outcomes)
-            return SearchResponse(success=False, data=SearchData(web=[]), error=details,
-                                  meta={"took_ms": (time.monotonic() - start) * 1000})
-        merged = merge_search(outcomes, limit, self._registry)
-        if self.cache and cache:
-            await self.cache.put(cache_key, json.dumps([i.model_dump() for i in merged]),
-                                 cfg.cache.search_ttl_s)
-        return SearchResponse(success=True, data=SearchData(web=merged),
-                              meta={"took_ms": (time.monotonic() - start) * 1000,
-                                    "cached": False,
-                                    "provider_stats": {
-                                        o.provider_id: {"success": o.error is None,
-                                                        "took_ms": round(o.took_ms, 1),
-                                                        "count": len(o.items) if o.items else 0,
-                                                        "error": o.error}
-                                        for o in outcomes}})
+                def call(p: Provider):
+                    return p.search(query, min(limit, p.cfg.max_results))
+
+                if mode == "rotation":
+                    outcomes = [await rotation(providers_list, "search", t, call)]
+                else:
+                    outcomes = [await primary_fallback(providers_list, "search", t, call)]
+            for o in outcomes:
+                self._record(o.provider_id, o.error is None, o.took_ms)
+            if all(o.error for o in outcomes):
+                details = "; ".join(f"{o.provider_id}: {o.error}" for o in outcomes)
+                resp = SearchResponse(success=False, data=SearchData(web=[]), error=details,
+                                      meta={"took_ms": (time.monotonic() - start) * 1000})
+            else:
+                merged = merge_search(outcomes, limit, self._registry)
+                if self.cache and cache:
+                    await self.cache.put(cache_key,
+                                         json.dumps([i.model_dump() for i in merged]),
+                                         cfg.cache.search_ttl_s)
+                resp = SearchResponse(success=True, data=SearchData(web=merged),
+                                      meta={"took_ms": (time.monotonic() - start) * 1000,
+                                            "cached": False,
+                                            "provider_stats": {
+                                                o.provider_id: {
+                                                    "success": o.error is None,
+                                                    "took_ms": round(o.took_ms, 1),
+                                                    "count": len(o.items) if o.items else 0,
+                                                    "error": o.error}
+                                                for o in outcomes}})
+        await self._log(resp, capability="search", query=query,
+                        params={"limit": limit, "providers": providers, "strategy": mode,
+                                "cache": cache, "timeout": timeout},
+                        providers_used=",".join(sorted({o.provider_id for o in outcomes})),
+                        token_name=token_name)
+        return resp
 
     async def extract(self, urls: list[str], fmt: str = "markdown", max_chars: int = 15000,
                       strategy: str | None = None, cache: bool = True,
-                      timeout: float | None = None) -> ExtractResponse:
+                      timeout: float | None = None, *, token_name: str = "") -> ExtractResponse:
         start = time.monotonic()
         cfg = self.config.get()
         providers_list = self._filter(self._registry_for("extract"), None)
+        resp: ExtractResponse | None = None
         if not providers_list:
-            return ExtractResponse(success=False,
+            resp = ExtractResponse(success=False,
                                    data=[ExtractItem(url=u, error="no extract provider enabled") for u in urls],
                                    meta={"took_ms": 0})
         mode = strategy or cfg.strategy.default_mode
@@ -116,6 +136,7 @@ class SearchHubEngine:
         final_items: list[ExtractItem] = []
         cached_any = False
         remaining: list[str] = []
+        outcomes: list[Outcome] = []
         if self.cache and cache:
             for url in urls:
                 hit = await self.cache.get(extract_cache_key(url, fmt, max_chars))
@@ -147,9 +168,49 @@ class SearchHubEngine:
                         await self.cache.put(extract_cache_key(item.url, fmt, max_chars),
                                              json.dumps(item.model_dump()), cfg.cache.extract_ttl_s)
             final_items.extend(merged)
-        return ExtractResponse(success=True, data=final_items,
-                               meta={"took_ms": (time.monotonic() - start) * 1000,
-                                     "cached": cached_any})
+        if resp is None:
+            resp = ExtractResponse(success=True, data=final_items,
+                                   meta={"took_ms": (time.monotonic() - start) * 1000,
+                                         "cached": cached_any})
+        await self._log(resp, capability="extract", query=",".join(urls),
+                        params={"fmt": fmt, "max_chars": max_chars, "strategy": mode,
+                                "cache": cache, "timeout": timeout},
+                        providers_used=",".join(sorted({o.provider_id for o in outcomes})) if outcomes else "",
+                        token_name=token_name)
+        return resp
+
+    async def _log(self, resp, *, capability: str, query: str, params: dict,
+                   providers_used: str, token_name: str) -> None:
+        cfg = self.config.get()
+        if self.history is None:
+            return
+        try:
+            if cfg.history.redact_queries:
+                query = hashlib.sha1(query.encode()).hexdigest()
+            meta = resp.meta if hasattr(resp, "meta") else {}
+            await self.history.record({
+                "ts": time.time(),
+                "capability": capability,
+                "query": query,
+                "params": json.dumps(params, ensure_ascii=False)[:500],
+                "providers": providers_used,
+                "cache_hit": bool(meta.get("cached", False)),
+                "took_ms": meta.get("took_ms", 0.0),
+                "result_count": len(resp.data.web) if capability == "search" else len(resp.data),
+                "success": resp.success,
+                "error": resp.error or "",
+                "token_name": token_name,
+                "response_preview": self._preview(resp, capability),
+            })
+        except Exception as e:
+            logger.debug("request log failed: %s", e)
+
+    def _preview(self, resp, capability: str) -> str:
+        if capability == "search":
+            parts = [f"{i.title}|{i.url}" for i in resp.data.web[:20]]
+        else:
+            parts = [f"{i.url}|{'ok' if i.error is None else i.error}" for i in resp.data[:20]]
+        return " || ".join(parts)[:2000]
 
     def provider_status(self) -> list[dict]:
         self.maybe_reload()
