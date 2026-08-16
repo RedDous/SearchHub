@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from searchhub import __version__
+from searchhub.api.admin.config_routes import router as admin_config_router
 from searchhub.api.admin.session import SessionStore, router as admin_session_router
 from searchhub.api.routes_extract import router as extract_router
 from searchhub.api.routes_health import router as health_router
@@ -68,4 +69,5 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.include_router(extract_router)
     app.include_router(providers_router)
     app.include_router(admin_session_router)
+    app.include_router(admin_config_router)
     return app
