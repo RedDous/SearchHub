@@ -50,6 +50,43 @@ async def test_status_masks_key():
     assert st["ok"] is True
 
 
+class _CountingEvent:
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+        self.transitions = 0
+
+    def clear(self):
+        self.transitions += 1
+        self._wrapped.clear()
+
+    def set(self):
+        self.transitions += 1
+        self._wrapped.set()
+
+    async def wait(self):
+        await self._wrapped.wait()
+
+
+@pytest.mark.asyncio
+async def test_concurrency_saturation_blocks_without_spinning():
+    pool = KeyPool(keys=["a"], max_concurrency=1)
+    counter = _CountingEvent(pool._free_event)
+    pool._free_event = counter  # type: ignore[assignment]
+
+    async def holder():
+        async with pool.use():
+            await asyncio.sleep(0.2)
+
+    start = time.monotonic()
+    holder_task = asyncio.create_task(holder())
+    await asyncio.sleep(0.01)
+    async with pool.use():
+        pass
+    await holder_task
+    assert time.monotonic() - start < 0.5
+    assert counter.transitions < 100
+
+
 @pytest.mark.asyncio
 async def test_waits_for_earliest_cooldown_recovery():
     pool = KeyPool(keys=["a", "b"], cooldown_s=0.3)

@@ -53,7 +53,7 @@ class KeyPool:
             earliest = min(state.cooldown_until - time.monotonic()
                            for state in self._keys)
             try:
-                await asyncio.wait_for(wake, timeout=max(0.0, earliest))
+                await asyncio.wait_for(wake, timeout=earliest if earliest > 0 else None)
             except asyncio.TimeoutError:
                 pass
             finally:
