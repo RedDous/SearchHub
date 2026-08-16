@@ -20,6 +20,7 @@
 import { ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import { onUnauthorized, setOnUnauthorized } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { t } from '@/i18n'
 
@@ -33,12 +34,15 @@ const loading = ref(false)
 async function submit() {
   if (loading.value) return
   loading.value = true
+  const original = onUnauthorized
+  setOnUnauthorized(() => {})
   try {
     await auth.login(username.value, password.value)
     router.push({ name: 'dashboard' })
   } catch (e) {
     message.error(e instanceof Error ? e.message : t('login.error'))
   } finally {
+    setOnUnauthorized(original)
     loading.value = false
   }
 }

@@ -12,6 +12,10 @@ export let onUnauthorized: () => void = () => {
   window.location.href = '/login'
 }
 
+export function setOnUnauthorized(fn: () => void): void {
+  onUnauthorized = fn
+}
+
 export async function request<T>(
   path: string,
   options: { method?: string; body?: unknown; params?: Record<string, string | number | undefined> } = {},

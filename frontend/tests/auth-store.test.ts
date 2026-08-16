@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import { onUnauthorized, setOnUnauthorized } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 
 describe('auth store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    setOnUnauthorized(() => {})
   })
 
   it('checkSession true on 200 config', async () => {
@@ -35,5 +37,31 @@ describe('auth store', () => {
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('/api/admin/login')
     expect(JSON.parse(String(init.body))).toEqual({ username: 'admin', password: 'secret' })
+  })
+
+  it('failed login rejects with error message', async () => {
+    const store = useAuthStore()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: false, error: 'invalid credentials' }), { status: 401 }),
+    )
+    await expect(store.login('admin', 'wrong')).rejects.toThrow('invalid credentials')
+    expect(store.loggedIn).toBe(false)
+  })
+
+  it('setOnUnauthorized replaces the hook and restores the original', () => {
+    const original = onUnauthorized
+    const spy = vi.fn()
+    setOnUnauthorized(spy)
+    expect(onUnauthorized).toBe(spy)
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: false, error: 'unauthorized' }), { status: 401 }),
+    )
+    const store = useAuthStore()
+    return store.checkSession().then((ok) => {
+      expect(ok).toBe(false)
+      expect(spy).toHaveBeenCalled()
+      setOnUnauthorized(original)
+      expect(onUnauthorized).toBe(original)
+    })
   })
 })
