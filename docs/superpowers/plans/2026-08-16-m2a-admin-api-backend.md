@@ -1318,7 +1318,7 @@ async def update_settings(body: SettingsBody, request: Request):
 - [ ] **Step 4: 运行确认通过**
 
 Run: `.venv/bin/pytest tests/api/admin/test_config_routes.py -v`
-Expected: PASS（8 passed）
+Expected: PASS（7 passed）
 
 - [ ] **Step 5: 提交**
 
@@ -1934,7 +1934,7 @@ Expected: PASS（4 passed）
 - [ ] **Step 6: 全量回归**
 
 Run: `.venv/bin/pytest -v`
-Expected: 全绿（88 + 7 + 6 + 6 + 6 + 8 + 5 + 3 + 4 中前序任务的测试均已并入）
+Expected: 全绿（134：M1 88 + M2A 46 新增）
 
 - [ ] **Step 7: 提交**
 
