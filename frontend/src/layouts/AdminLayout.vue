@@ -58,8 +58,11 @@ function toggleTheme() {
   ui.setTheme(ui.theme === 'dark' ? 'light' : 'dark')
 }
 async function onLogout() {
-  await auth.logout()
-  router.push({ name: 'login' })
+  try {
+    await auth.logout()
+  } finally {
+    router.push({ name: 'login' })
+  }
 }
 </script>
 

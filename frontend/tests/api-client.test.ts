@@ -5,11 +5,13 @@ describe('api client', () => {
   const originalFetch = globalThis.fetch
 
   function mockFetch(status: number, body: unknown) {
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(body), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
-      }),
+    globalThis.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        new Response(JSON.stringify(body), {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
     )
   }
 

@@ -43,18 +43,18 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import { adminApi } from '@/api/admin'
 import { t } from '@/i18n'
 
 const message = useMessage()
 const saving = ref(false)
-const modeOptions = [
+const modeOptions = computed(() => [
   { label: t('settings.modeFanout'), value: 'fanout' },
   { label: t('settings.modeRotation'), value: 'rotation' },
   { label: t('settings.modePrimaryFallback'), value: 'primary_fallback' },
-]
+])
 
 const form = reactive({
   strategy: { default_mode: 'fanout', timeout_s: 5 },

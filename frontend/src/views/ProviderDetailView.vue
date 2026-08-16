@@ -83,7 +83,7 @@ import { useDialog, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { adminApi, type KeyEntry, type ProviderCfg } from '@/api/admin'
 import { ApiError } from '@/api/client'
-import { lang, t } from '@/i18n'
+import { t } from '@/i18n'
 
 const props = defineProps<{ id: string }>()
 const router = useRouter()
@@ -151,9 +151,20 @@ async function load() {
   }
 }
 
+let keysReqSeq = 0
+
 async function loadKeys() {
-  if (props.id === 'new') return
-  keys.value = (await adminApi.listKeys(props.id)).keys
+  if (props.id === 'new') {
+    keys.value = []
+    return
+  }
+  const seq = ++keysReqSeq
+  try {
+    const r = await adminApi.listKeys(props.id)
+    if (seq === keysReqSeq) keys.value = r.keys
+  } catch (e) {
+    if (seq === keysReqSeq) message.error(e instanceof Error ? e.message : t('common.failed'))
+  }
 }
 
 function parseOptions(raw: string): Record<string, unknown> {
@@ -177,7 +188,7 @@ function keyStatus(k: KeyEntry): { type: 'warning' | 'info' | 'success'; text: s
 
 async function onSave() {
   if (isNew.value && !form.id.trim()) {
-    message.error(`${t('providers.id')}: ${lang.value === 'zh' ? '必填' : 'required'}`)
+    message.error(t('providers.idRequired'))
     return
   }
   if (form.capabilities.length === 0) {

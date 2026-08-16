@@ -36,20 +36,12 @@ export async function request<T>(
     init.body = JSON.stringify(body)
   }
   const resp = await fetch(url, init)
-  const envelopeKey = Symbol.for('searchhub.envelope')
   type Envelope = { success: boolean; data?: T; error?: string } | null
-  const cache = resp as { [envelopeKey]?: Envelope }
-  const cached = cache[envelopeKey]
   let payload: Envelope
-  if (cached === undefined) {
-    try {
-      payload = (await resp.json()) as Envelope
-    } catch {
-      payload = null
-    }
-    cache[envelopeKey] = payload
-  } else {
-    payload = cached
+  try {
+    payload = (await resp.json()) as Envelope
+  } catch {
+    payload = null
   }
   if (resp.status === 401) {
     onUnauthorized()

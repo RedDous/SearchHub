@@ -94,21 +94,24 @@ function swatchStyle(p: string) {
   return { backgroundImage: `url("${p}")` }
 }
 
-function onFile(file: File) {
+function onFile(file: File): boolean {
   if (file.size > 2 * 1024 * 1024) {
     message.error(t('system.wallpaperTooLarge'))
-    return
+    return false
   }
   const reader = new FileReader()
   reader.onload = () => {
     ui.setWallpaper(String(reader.result))
   }
+  reader.onerror = () => {
+    message.error(t('common.failed'))
+  }
   reader.readAsDataURL(file)
+  return true
 }
 
 function onUpload(options: UploadCustomRequestOptions) {
-  if (options.file.file) {
-    onFile(options.file.file)
+  if (options.file.file && onFile(options.file.file)) {
     options.onFinish()
   } else {
     options.onError()

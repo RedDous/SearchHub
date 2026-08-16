@@ -168,7 +168,8 @@ async function load() {
       offset: (page.value - 1) * PAGE_SIZE,
     })
     rows.value = r.rows
-    itemCount.value = (page.value - 1) * PAGE_SIZE + r.rows.length
+    itemCount.value =
+      (page.value - 1) * PAGE_SIZE + r.rows.length + (r.rows.length === PAGE_SIZE ? 1 : 0)
   } catch (e) {
     message.error(e instanceof Error ? e.message : t('common.failed'))
   } finally {

@@ -11,21 +11,25 @@
       <n-grid-item>
         <n-card :title="t('dashboard.totalRequests')" size="small">
           <n-statistic :value="fmt(summary?.total)"><template #suffix></template></n-statistic>
+          <div v-if="noData" class="no-data-hint">{{ t('dashboard.noData') }}</div>
         </n-card>
       </n-grid-item>
       <n-grid-item>
         <n-card :title="t('dashboard.successRate')" size="small">
           <n-statistic :value="pct(summary?.success_rate)"><template #suffix>%</template></n-statistic>
+          <div v-if="noData" class="no-data-hint">{{ t('dashboard.noData') }}</div>
         </n-card>
       </n-grid-item>
       <n-grid-item>
         <n-card :title="t('dashboard.cacheHitRate')" size="small">
           <n-statistic :value="pct(summary?.cache_hit_rate)"><template #suffix>%</template></n-statistic>
+          <div v-if="noData" class="no-data-hint">{{ t('dashboard.noData') }}</div>
         </n-card>
       </n-grid-item>
       <n-grid-item>
         <n-card :title="t('dashboard.avgLatency')" size="small">
-          <n-statistic :value="fmt(summary?.avg_took_ms)"><template #suffix>ms</template></n-statistic>
+          <n-statistic :value="ms(summary?.avg_took_ms)"><template #suffix>ms</template></n-statistic>
+          <div v-if="noData" class="no-data-hint">{{ t('dashboard.noData') }}</div>
         </n-card>
       </n-grid-item>
     </n-grid>
@@ -70,12 +74,20 @@ const loading = ref(false)
 const summary = ref<StatsSummary | null>(null)
 const chartRows = ref<ChartRow[]>([])
 
+const noData = computed(() => !summary.value || summary.value.total === 0)
+
 function fmt(v: number | undefined): string {
   return String(v ?? 0)
 }
 
 function pct(v: number | undefined): string {
+  if (noData.value) return '-'
   return ((v ?? 0) * 100).toFixed(1)
+}
+
+function ms(v: number | undefined): string {
+  if (noData.value) return '-'
+  return String(v ?? 0)
 }
 
 const chartOption = computed<EChartsOption>(() => ({
@@ -173,6 +185,11 @@ onMounted(load)
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--n-text-color-3, #999);
+}
+.no-data-hint {
+  margin-top: 4px;
+  font-size: 12px;
   color: var(--n-text-color-3, #999);
 }
 </style>
