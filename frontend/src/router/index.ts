@@ -10,7 +10,7 @@ const routes = [
       { path: '', redirect: '/dashboard' },
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
       { path: 'providers', name: 'providers', component: () => import('@/views/ProvidersView.vue') },
-      { path: 'providers/:id', name: 'provider-detail', component: () => import('@/views/ProviderDetailView.vue') },
+      { path: 'providers/:id', name: 'provider-detail', component: () => import('@/views/ProviderDetailView.vue'), props: true },
       { path: 'settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
       { path: 'tokens', name: 'tokens', component: () => import('@/views/TokensView.vue') },
       { path: 'history', name: 'history', component: () => import('@/views/HistoryView.vue') },
