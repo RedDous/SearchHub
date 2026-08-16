@@ -13,6 +13,7 @@ from searchhub import __version__
 from searchhub.api.admin.config_routes import router as admin_config_router
 from searchhub.api.admin.keys_routes import router as admin_keys_router
 from searchhub.api.admin.session import SessionStore, router as admin_session_router
+from searchhub.api.admin.stats_routes import router as admin_stats_router
 from searchhub.api.admin.token_routes import router as admin_token_router
 from searchhub.api.routes_extract import router as extract_router
 from searchhub.api.routes_health import router as health_router
@@ -21,6 +22,7 @@ from searchhub.api.routes_search import router as search_router
 from searchhub.config import ConfigService
 from searchhub.orchestrator import SearchHubEngine
 from searchhub.storage.cache import CacheRepo
+from searchhub.storage.history import RequestLogRepo
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,8 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         config.load()
         cache = CacheRepo(data_dir / "cache.db")
         http = httpx.AsyncClient(timeout=60)
-        engine = SearchHubEngine(config, cache, http)
+        history = RequestLogRepo(data_dir / "history.db")
+        engine = SearchHubEngine(config, cache, http, history=history)
         engine.maybe_reload()
         app.state.engine = engine
         app.state.http = http
@@ -42,6 +45,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         yield
         await http.aclose()
         await cache.close()
+        await history.close()
 
     app = FastAPI(title="SearchHub", version=__version__, lifespan=lifespan)
 
@@ -74,4 +78,5 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.include_router(admin_config_router)
     app.include_router(admin_keys_router)
     app.include_router(admin_token_router)
+    app.include_router(admin_stats_router)
     return app

@@ -25,7 +25,8 @@ async def _run(request: Request, urls: list[str], fmt: str, include_raw: bool, m
     if fmt not in VALID_FORMATS:
         raise HTTPException(status_code=400, detail="format must be text or markdown")
     resp = await request.app.state.engine.extract(
-        urls, fmt=fmt, max_chars=max_chars, strategy=strategy, cache=cache, timeout=timeout)
+        urls, fmt=fmt, max_chars=max_chars, strategy=strategy, cache=cache, timeout=timeout,
+        token_name=request.state.token_name)
     if not include_raw:
         for item in resp.data:
             item.raw_content = ""

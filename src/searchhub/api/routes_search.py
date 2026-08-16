@@ -24,7 +24,8 @@ async def search_get(request: Request, q: str = "", limit: int = 5, providers: s
     if not q:
         raise HTTPException(status_code=400, detail="q is required")
     return await request.app.state.engine.search(
-        q, limit=limit, providers=providers, strategy=strategy, cache=cache, timeout=timeout)
+        q, limit=limit, providers=providers, strategy=strategy, cache=cache, timeout=timeout,
+        token_name=request.state.token_name)
 
 
 @router.post("")
@@ -33,4 +34,4 @@ async def search_post(request: Request, body: SearchBody):
         raise HTTPException(status_code=400, detail="q is required")
     return await request.app.state.engine.search(
         body.q, limit=body.limit, providers=body.providers, strategy=body.strategy,
-        cache=body.cache, timeout=body.timeout)
+        cache=body.cache, timeout=body.timeout, token_name=request.state.token_name)
