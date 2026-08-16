@@ -50,6 +50,15 @@ async def test_status_masks_key():
     assert st["ok"] is True
 
 
+def test_status_masks_various_lengths():
+    cases = {"abcdefghijklm": "abcde****jklm", "abcd1234": "ab****34", "abc": "****"}
+    for key, expected in cases.items():
+        pool = KeyPool(keys=[key])
+        mask = pool.status()[0]["key"]
+        assert mask == expected
+        assert key not in mask
+
+
 class _CountingEvent:
     def __init__(self, wrapped):
         self._wrapped = wrapped

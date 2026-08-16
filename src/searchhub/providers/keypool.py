@@ -88,7 +88,13 @@ class KeyPool:
         now = time.monotonic()
         result = []
         for state in self._keys:
-            mask = state.key[:8] + "****" + state.key[-4:]
+            k = state.key
+            if len(k) >= 9:
+                mask = k[:5] + "****" + k[-4:]
+            elif len(k) >= 4:
+                mask = k[:2] + "****" + k[-2:]
+            else:
+                mask = "****"
             result.append({
                 "key": mask,
                 "cooling_until": max(0.0, state.cooldown_until - now),
