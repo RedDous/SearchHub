@@ -20,7 +20,7 @@ class TavilyProvider(Provider):
             except Exception as e:
                 self._report(key, None)
                 raise ProviderError(self.id, f"http error: {e.__class__.__name__}")
-            if resp.status_code >= 400:
+            if not 200 <= resp.status_code < 300:
                 self._report(key, resp.status_code)
                 raise ProviderError(self.id, f"tavily http {resp.status_code}", status=resp.status_code)
         return [
@@ -39,7 +39,7 @@ class TavilyProvider(Provider):
             except Exception as e:
                 self._report(key, None)
                 raise ProviderError(self.id, f"http error: {e.__class__.__name__}")
-            if resp.status_code >= 400:
+            if not 200 <= resp.status_code < 300:
                 self._report(key, resp.status_code)
                 raise ProviderError(self.id, f"tavily http {resp.status_code}", status=resp.status_code)
         data = resp.json()

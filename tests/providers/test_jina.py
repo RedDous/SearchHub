@@ -43,6 +43,15 @@ async def test_extract_rotates_keys_round_robin():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_extract_3xx_is_per_url_error():
+    respx.get("https://r.jina.ai/https://redirect.com").mock(return_value=httpx.Response(302))
+    items = await make_provider().extract(["https://redirect.com"])
+    assert items[0].error == "jina http 302"
+    assert items[0].url == "https://redirect.com"
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_extract_failure_is_per_url():
     respx.get("https://r.jina.ai/https://bad.com").mock(return_value=httpx.Response(500))
     items = await make_provider().extract(["https://bad.com"])

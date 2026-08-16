@@ -31,7 +31,7 @@ class JinaProvider(Provider):
                 if k is not None:
                     headers["Authorization"] = f"Bearer {k}"
                 resp = await self.http.get(self.BASE + url, headers=headers)
-            if resp.status_code >= 400:
+            if not 200 <= resp.status_code < 300:
                 if k is not None:
                     self._report(k, resp.status_code)
                 return ExtractItem(url=url, error=f"jina http {resp.status_code}", provider=self.id)

@@ -27,7 +27,7 @@ class SearxngProvider(Provider):
             resp = await self.http.get(url, params={"q": query, "format": "json", "safesearch": 1})
         except Exception as e:
             raise ProviderError(self.id, f"http error: {e.__class__.__name__}")
-        if resp.status_code >= 400:
+        if not 200 <= resp.status_code < 300:
             raise ProviderError(self.id, f"searxng http {resp.status_code}", status=resp.status_code)
         return [
             SearchItem(title=r.get("title", ""), url=r.get("url", ""),

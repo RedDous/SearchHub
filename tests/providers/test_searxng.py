@@ -34,6 +34,14 @@ async def test_search_500_raises():
 
 
 @pytest.mark.asyncio
+@respx.mock
+async def test_search_3xx_raises():
+    respx.get("http://searxng:8080/search").mock(return_value=httpx.Response(301))
+    with pytest.raises(ProviderError):
+        await make_provider().search("python", 3)
+
+
+@pytest.mark.asyncio
 async def test_search_without_base_url_raises():
     with pytest.raises(ProviderError):
         await make_provider(base_url=None).search("python", 3)

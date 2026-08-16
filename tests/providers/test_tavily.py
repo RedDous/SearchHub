@@ -38,6 +38,15 @@ async def test_search_401_raises():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_search_3xx_raises():
+    respx.post(f"{TAVILY}/search").mock(return_value=httpx.Response(302))
+    with pytest.raises(ProviderError) as ei:
+        await make_provider().search("python", 3)
+    assert ei.value.status == 302
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_extract_maps_results_and_failures():
     respx.post(f"{TAVILY}/extract").mock(return_value=httpx.Response(200, json={
         "results": [{"url": "https://a.com", "raw_content": "body"}],

@@ -42,6 +42,15 @@ async def test_search_429_raises_provider_error():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_search_3xx_raises_provider_error():
+    respx.post(f"{EXA}/search").mock(return_value=httpx.Response(302))
+    with pytest.raises(ProviderError) as ei:
+        await make_provider().search("python", 3)
+    assert ei.value.status == 302
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_extract_maps_contents_and_failures():
     respx.post(f"{EXA}/contents").mock(return_value=httpx.Response(200, json={
         "results": [{"url": "https://a.com", "title": "AT", "text": "x" * 500}],
