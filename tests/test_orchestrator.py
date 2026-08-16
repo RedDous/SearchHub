@@ -1,5 +1,4 @@
 import asyncio
-import time
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -9,19 +8,19 @@ import pytest
 from searchhub.config import ConfigService, ProviderConfig
 from searchhub.models import SearchItem
 from searchhub.orchestrator import SearchHubEngine
-from searchhub.providers import build_registry
 
 
 class FakeProvider:
     id = "fake"
     capabilities = frozenset({"search", "extract"})
 
-    def __init__(self, pid, weight=10, fail=False, slow=0.0):
+    def __init__(self, pid, weight=10, fail=False, slow=0.0, empty=False):
         self.id = pid
         self.cfg = SimpleNamespace(id=pid, capabilities=["search", "extract"],
                                    weight=weight, priority=100, max_results=8)
         self.fail = fail
         self.slow = slow
+        self.empty = empty
         self.calls = 0
 
     def supports(self, cap):
@@ -34,6 +33,8 @@ class FakeProvider:
             raise ProviderError(self.id, "boom")
         if self.slow:
             await asyncio.sleep(self.slow)
+        if self.empty:
+            return []
         return [SearchItem(title=f"{query}-{self.id}", url=f"https://{self.id}.com",
                            position=0, provider=self.id)]
 
@@ -87,6 +88,14 @@ async def test_search_all_fail_returns_error(data_dir):
     resp = await eng.search("python")
     assert resp.success is False
     assert "a" in resp.error
+
+
+@pytest.mark.asyncio
+async def test_search_all_providers_zero_results_is_success(data_dir):
+    eng = make_engine(data_dir, [{"id": "a", "obj": FakeProvider("a", empty=True)}])
+    resp = await eng.search("python")
+    assert resp.success is True
+    assert resp.data.web == []
 
 
 @pytest.mark.asyncio

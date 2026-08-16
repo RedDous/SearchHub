@@ -83,7 +83,7 @@ class SearchHubEngine:
                 outcomes = [await primary_fallback(providers_list, "search", t, call)]
         for o in outcomes:
             self._record(o.provider_id, o.error is None, o.took_ms)
-        if not any(o.items for o in outcomes if not o.error):
+        if all(o.error for o in outcomes):
             details = "; ".join(f"{o.provider_id}: {o.error}" for o in outcomes)
             return SearchResponse(success=False, data=SearchData(web=[]), error=details,
                                   meta={"took_ms": (time.monotonic() - start) * 1000})
