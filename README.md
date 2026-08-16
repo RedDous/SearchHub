@@ -52,6 +52,16 @@ auth:
 
 生成 token 哈希：`python -c "import hashlib; print(hashlib.sha256(b'YOUR_TOKEN').hexdigest())"`
 
+## 管理后台（M2）
+
+管理 API 位于 `/api/admin/*`（与公开 API 分离，使用独立管理员会话）：
+
+- 登录：`POST /api/admin/login`（`{"username", "password"}`），会话存 httpOnly Cookie
+- 首次启动：若 `config.yaml` 无密码哈希，使用环境变量 `ADMIN_PASSWORD`；未设置则默认 `admin/admin`（启动日志有警告，请尽快在 UI 改密）
+- 功能：供应商 CRUD 与连接测试、Key 池增删（掩码显示）、策略/缓存/历史设置、调用方 Token 创建/吊销、历史查询、统计（summary + 每小时时序）、配置版本查看
+- 所有写操作原子写入 `data/config.yaml`/`data/secrets.env` 并热重载，自动滚动备份 5 份
+- 历史记录存 `data/history.db`，默认保留 30 天，后台每小时自动清理；`history.redact_queries: true` 可对 query 落盘前 sha1
+
 ## 测试
 
 ```bash

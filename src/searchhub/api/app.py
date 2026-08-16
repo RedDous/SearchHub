@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -27,6 +30,19 @@ from searchhub.storage.history import RequestLogRepo
 logger = logging.getLogger(__name__)
 
 
+async def _cleanup_loop(history: RequestLogRepo, cache: CacheRepo | None,
+                        config: ConfigService) -> None:
+    while True:
+        try:
+            cfg = config.get()
+            await history.purge_before(time.time() - cfg.history.retention_days * 86400)
+            if cache is not None:
+                await cache.purge_expired()
+        except Exception:
+            logger.exception("cleanup loop error")
+        await asyncio.sleep(3600)
+
+
 def create_app(data_dir: Path | None = None) -> FastAPI:
     data_dir = Path(data_dir) if data_dir else Path.cwd() / "data"
 
@@ -37,12 +53,23 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         cache = CacheRepo(data_dir / "cache.db")
         http = httpx.AsyncClient(timeout=60)
         history = RequestLogRepo(data_dir / "history.db")
+        cfg = config.get()
+        if not cfg.admin.password_hash:
+            default = os.environ.get("ADMIN_PASSWORD") or "admin"
+            if not os.environ.get("ADMIN_PASSWORD"):
+                logger.warning("ADMIN_PASSWORD not set — using default password 'admin'. "
+                               "Change it from the UI as soon as possible.")
+            config.set_admin_password(default)
         engine = SearchHubEngine(config, cache, http, history=history)
         engine.maybe_reload()
         app.state.engine = engine
         app.state.http = http
+        app.state.history = history
+        app.state.data_dir = data_dir
         app.state.session_store = SessionStore(config.session_secret())
+        cleanup_task = asyncio.create_task(_cleanup_loop(history, cache, config))
         yield
+        cleanup_task.cancel()
         await http.aclose()
         await cache.close()
         await history.close()
