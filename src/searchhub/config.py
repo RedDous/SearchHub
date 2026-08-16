@@ -161,6 +161,7 @@ class ConfigService:
         tmp = self.secrets_path.with_name(self.secrets_path.name + ".tmp")
         try:
             with tmp.open("w") as f:
+                tmp.chmod(0o600)
                 for k, v in sorted(secrets_map.items()):
                     f.write(f"{k}={v}\n")
             os.replace(tmp, self.secrets_path)
