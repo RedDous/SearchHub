@@ -110,11 +110,15 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
 
     dist = Path(os.environ.get("SEARCHHUB_WEB_DIST", "")) if os.environ.get("SEARCHHUB_WEB_DIST") else Path(__file__).resolve().parents[3] / "frontend" / "dist"
     if dist.is_dir():
-        app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        assets_dir = dist / "assets"
+        if assets_dir.is_dir():
+            app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+        index_html = dist / "index.html"
 
         @app.get("/{full_path:path}", include_in_schema=False)
         async def spa_fallback(full_path: str):
-            if full_path.startswith(("api/", "v1/", "healthz", "readyz")):
+            if full_path in {"api", "v1"} or full_path.startswith(("api/", "v1/", "healthz", "readyz")):
                 raise HTTPException(404, "not found")
             if any(seg == ".." for seg in full_path.split("/")) or "\\" in full_path:
                 raise HTTPException(404, "not found")
@@ -123,10 +127,14 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
                 raise HTTPException(404, "not found")
             if full_path and target.is_file():
                 return FileResponse(target)
-            return FileResponse(dist / "index.html")
+            if not index_html.is_file():
+                raise HTTPException(404, "not found")
+            return FileResponse(index_html)
 
         @app.get("/", include_in_schema=False)
         async def spa_index():
-            return FileResponse(dist / "index.html")
+            if not index_html.is_file():
+                raise HTTPException(404, "not found")
+            return FileResponse(index_html)
 
     return app

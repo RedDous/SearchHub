@@ -37,6 +37,38 @@ def test_api_404_stays_json(data_dir, monkeypatch):
         assert r.json()["success"] is False
 
 
+def test_bare_api_and_v1_404_json(data_dir, monkeypatch):
+    dist = make_dist(data_dir)
+    monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(dist))
+    with TestClient(create_app(data_dir)) as c:
+        for path in ("/api", "/v1"):
+            r = c.get(path)
+            assert r.status_code == 404, r.text
+            assert r.json() == {"success": False, "error": "not found"}
+
+
+def test_dist_without_assets_does_not_crash(data_dir, monkeypatch):
+    dist = data_dir / "webdist-bare"
+    dist.mkdir(parents=True)
+    (dist / "robots.txt").write_text("x")
+    monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(dist))
+    with TestClient(create_app(data_dir)) as c:
+        assert c.get("/").status_code == 404
+        assert c.get("/some/deep/route").status_code == 404
+        assert c.get("/").json()["success"] is False
+        assert c.get("/assets/app.js").status_code == 404
+
+
+def test_dist_with_index_but_no_assets_serves_index(data_dir, monkeypatch):
+    dist = data_dir / "webdist-index-only"
+    dist.mkdir(parents=True)
+    (dist / "index.html").write_text("<html>spa</html>")
+    monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(dist))
+    with TestClient(create_app(data_dir)) as c:
+        assert c.get("/").text == "<html>spa</html>"
+        assert c.get("/providers").text == "<html>spa</html>"
+
+
 def test_no_dist_no_mount(data_dir, monkeypatch):
     monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(data_dir / "missing-dist"))
     with TestClient(create_app(data_dir)) as c:
