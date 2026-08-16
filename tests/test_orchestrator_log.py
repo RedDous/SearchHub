@@ -1,6 +1,7 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import hashlib
 import httpx
 import pytest
 
@@ -92,6 +93,18 @@ async def test_redact_queries(data_dir):
     rows = await eng.history.query()
     assert rows[0]["query"] != "secret-query"
     assert len(rows[0]["query"]) == 40  # sha1 hex
+
+
+@pytest.mark.asyncio
+async def test_redact_queries_hides_extract_urls_in_preview(data_dir):
+    eng = make_engine(data_dir)
+    eng.config.get().history.redact_queries = True
+    await eng.extract(["https://secret.example.com"], token_name="a")
+    rows = await eng.history.query()
+    preview = rows[0]["response_preview"]
+    assert "secret.example.com" not in preview
+    assert hashlib.sha1(b"https://secret.example.com").hexdigest() in preview
+    assert preview == f"{hashlib.sha1(b'https://secret.example.com').hexdigest()}|ok"
 
 
 @pytest.mark.asyncio

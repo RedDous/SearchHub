@@ -200,14 +200,18 @@ class SearchHubEngine:
                 "success": resp.success,
                 "error": resp.error or "",
                 "token_name": token_name,
-                "response_preview": self._preview(resp, capability),
+                "response_preview": self._preview(resp, capability,
+                                                  redact=cfg.history.redact_queries),
             })
         except Exception as e:
             logger.debug("request log failed: %s", e)
 
-    def _preview(self, resp, capability: str) -> str:
+    def _preview(self, resp, capability: str, redact: bool = False) -> str:
         if capability == "search":
             parts = [f"{i.title}|{i.url}" for i in resp.data.web[:20]]
+        elif redact:
+            parts = [f"{hashlib.sha1(i.url.encode()).hexdigest()}|"
+                     f"{'ok' if i.error is None else i.error}" for i in resp.data[:20]]
         else:
             parts = [f"{i.url}|{'ok' if i.error is None else i.error}" for i in resp.data[:20]]
         return " || ".join(parts)[:2000]
