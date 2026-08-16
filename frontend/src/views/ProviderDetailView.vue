@@ -180,6 +180,10 @@ async function onSave() {
     message.error(`${t('providers.id')}: ${lang.value === 'zh' ? '必填' : 'required'}`)
     return
   }
+  if (form.capabilities.length === 0) {
+    message.error(t('providers.capabilitiesRequired'))
+    return
+  }
   let options: Record<string, unknown>
   try {
     options = parseOptions(form.options)

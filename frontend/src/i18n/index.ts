@@ -75,6 +75,7 @@ export const messages: Record<Lang, Record<string, string>> = {
     'providers.enabledFalse': '已停用',
     'providers.delete': '删除',
     'providers.invalidJson': 'options 必须是合法的 JSON 对象',
+    'providers.capabilitiesRequired': '至少选择一个能力',
     'providers.providerExists': '供应商已存在',
   },
   en: {
@@ -147,6 +148,7 @@ export const messages: Record<Lang, Record<string, string>> = {
     'providers.enabledFalse': 'Disabled',
     'providers.delete': 'Delete',
     'providers.invalidJson': 'options must be a valid JSON object',
+    'providers.capabilitiesRequired': 'Select at least one capability',
     'providers.providerExists': 'Provider already exists',
   },
 }
