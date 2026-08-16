@@ -48,3 +48,14 @@ async def test_status_masks_key():
     assert st["key"] != "tvly-secret123"
     assert st["key"].startswith("tvly-") and "****" in st["key"]
     assert st["ok"] is True
+
+
+@pytest.mark.asyncio
+async def test_waits_for_earliest_cooldown_recovery():
+    pool = KeyPool(keys=["a", "b"], cooldown_s=0.3)
+    pool.report_error("a", status=429)
+    pool.report_error("b", status=429)
+    start = time.monotonic()
+    async with pool.use() as key:
+        assert key in {"a", "b"}
+        assert time.monotonic() - start >= 0.25

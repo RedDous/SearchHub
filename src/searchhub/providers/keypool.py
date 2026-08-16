@@ -46,9 +46,19 @@ class KeyPool:
                 await state.bucket.acquire()
                 state.in_flight += 1
                 return state
+            if not self._keys:
+                raise RuntimeError("KeyPool has no keys")
             self._free_event.clear()
-            await asyncio.wait_for(self._free_event.wait(), timeout=5.0)
-            self._free_event.set()
+            wake = asyncio.create_task(self._free_event.wait())
+            earliest = min(state.cooldown_until - time.monotonic()
+                           for state in self._keys)
+            try:
+                await asyncio.wait_for(wake, timeout=max(0.0, earliest))
+            except asyncio.TimeoutError:
+                pass
+            finally:
+                wake.cancel()
+                self._free_event.set()
 
     def _pick(self) -> _KeyState | None:
         n = len(self._keys)
