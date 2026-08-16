@@ -1,5 +1,5 @@
 <template>
-  <n-config-provider :locale="naiveLocale" :theme="theme">
+  <n-config-provider :theme="naiveTheme" :locale="naiveLocale" :date-locale="naiveDateLocale">
     <n-message-provider>
       <n-dialog-provider>
         <n-notification-provider>
@@ -11,17 +11,38 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import {
+  darkTheme,
+  dateEnUS,
+  dateZhCN,
   NConfigProvider,
   NDialogProvider,
   NMessageProvider,
   NNotificationProvider,
-  darkTheme,
-  type GlobalTheme,
 } from 'naive-ui'
-import { naiveLocale } from '@/i18n'
+import { naiveLocale, type Lang } from '@/i18n'
+import { useUiStore } from '@/stores/ui'
 
-const isDark = computed(() => localStorage.getItem('sh_theme') === 'dark')
-const theme = computed<GlobalTheme | null>(() => (isDark.value ? darkTheme : null))
+const ui = useUiStore()
+const naiveTheme = computed(() => (ui.theme === 'dark' ? darkTheme : null))
+const naiveDateLocale = computed(() => (ui.lang === 'zh' ? dateZhCN : dateEnUS))
+
+function applyWallpaper() {
+  if (ui.wallpaper) {
+    document.documentElement.style.setProperty('--sh-wallpaper', `url("${ui.wallpaper}")`)
+  } else {
+    document.documentElement.style.removeProperty('--sh-wallpaper')
+  }
+}
+
+onMounted(() => {
+  ui.setLang(ui.lang as Lang)
+  applyWallpaper()
+})
+
+watch(() => ui.wallpaper, applyWallpaper)
+watch(() => ui.theme, (v) => {
+  document.documentElement.classList.toggle('dark', v === 'dark')
+})
 </script>
