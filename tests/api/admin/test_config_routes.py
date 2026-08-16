@@ -88,3 +88,21 @@ def test_settings_requires_auth(data_dir):
     cs.set_admin_password("testpass123")
     with TestClient(create_app(data_dir)) as c:
         assert c.get("/api/admin/config").status_code == 401
+
+
+def test_settings_update_preserves_out_of_band_provider(admin_client, data_dir):
+    from searchhub.config import ConfigService, ProviderConfig
+
+    r = admin_client.post("/api/admin/providers",
+                          json={"id": "exa", "capabilities": ["search"]})
+    assert r.status_code == 200
+    cs2 = ConfigService(data_dir)
+    cs2.load()
+    cfg2 = cs2.get()
+    cfg2.providers.append(ProviderConfig(id="exa2", capabilities=["search"]))
+    cs2.save_config(cfg2)
+    r = admin_client.put("/api/admin/settings", json={"cache": {"enabled": True}})
+    assert r.status_code == 200
+    cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
+    assert {p["id"] for p in cfg["providers"]} == {"exa", "exa2"}
+    assert cfg["cache"]["enabled"] is True

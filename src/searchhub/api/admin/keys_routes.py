@@ -24,6 +24,7 @@ def _mask(key: str) -> str:
 @router.get("/providers/{provider_id}/keys")
 async def list_keys(provider_id: str, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     keys = svc.provider_keys(provider_id)
     pool_status = []
     for entry in request.app.state.engine.provider_status():

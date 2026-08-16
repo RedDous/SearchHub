@@ -45,6 +45,7 @@ def _save(svc, cfg) -> None:
 @router.post("/providers")
 async def create_provider(body: ProviderConfig, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     if svc.get().provider(body.id) is not None:
         raise HTTPException(status_code=409, detail=f"provider {body.id} already exists")
     cfg = svc.get()
@@ -56,6 +57,7 @@ async def create_provider(body: ProviderConfig, request: Request):
 @router.put("/providers/{provider_id}")
 async def update_provider(provider_id: str, body: ProviderConfig, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     cfg = svc.get()
     idx = next((i for i, p in enumerate(cfg.providers) if p.id == provider_id), None)
     if idx is None:
@@ -70,6 +72,7 @@ async def update_provider(provider_id: str, body: ProviderConfig, request: Reque
 @router.delete("/providers/{provider_id}")
 async def delete_provider(provider_id: str, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     cfg = svc.get()
     new = [p for p in cfg.providers if p.id != provider_id]
     if len(new) == len(cfg.providers):
@@ -109,6 +112,7 @@ async def test_provider(provider_id: str, request: Request):
 @router.put("/settings")
 async def update_settings(body: SettingsBody, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     cfg = svc.get()
     if body.strategy is not None:
         cfg.strategy = body.strategy

@@ -30,6 +30,7 @@ async def list_tokens(request: Request):
 @router.post("/tokens")
 async def create_token(body: TokenCreateBody, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     raw = _secrets.token_urlsafe(32)
     entry = TokenEntry(name=body.name,
                        token_hash=hashlib.sha256(raw.encode()).hexdigest(),
@@ -43,6 +44,7 @@ async def create_token(body: TokenCreateBody, request: Request):
 @router.delete("/tokens/{token_id}")
 async def delete_token(token_id: str, request: Request):
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     cfg = svc.get()
     new = [t for t in cfg.auth.tokens if t.id != token_id]
     if len(new) == len(cfg.auth.tokens):
