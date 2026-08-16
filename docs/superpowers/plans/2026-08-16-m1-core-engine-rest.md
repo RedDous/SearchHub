@@ -88,6 +88,7 @@ tests/
 - Create: `pyproject.toml`
 - Create: `README.md`
 - Create: `src/searchhub/__init__.py`
+- Create: `src/searchhub/__main__.py`
 - Create: `src/searchhub/api/__init__.py`
 - Create: `src/searchhub/api/app.py`
 - Create: `src/searchhub/api/routes_health.py`
@@ -223,6 +224,13 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+```
+
+`src/searchhub/__main__.py`（支持 `python -m searchhub`）:
+```python
+from searchhub.cli import main
+
+main()
 ```
 
 `tests/conftest.py`:
@@ -587,7 +595,7 @@ async def test_throttles_beyond_rate():
 
 @pytest.mark.asyncio
 async def test_parallel_acquisitions_are_serialized():
-    bucket = TokenBucket(rate=4)
+    bucket = TokenBucket(rate=4, capacity=1)
     start = time.monotonic()
     await asyncio.gather(*(bucket.acquire() for _ in range(4)))
     elapsed = time.monotonic() - start
@@ -941,12 +949,14 @@ class SearchResponse(BaseModel):
     success: bool = True
     data: SearchData
     meta: dict[str, Any] = {}
+    error: str | None = None
 
 
 class ExtractResponse(BaseModel):
     success: bool = True
     data: list[ExtractItem]
     meta: dict[str, Any] = {}
+    error: str | None = None
 ```
 
 `src/searchhub/providers/base.py`:
@@ -1146,9 +1156,10 @@ def test_merge_search_dedups_and_ranks():
         {"ddg": low, "exa": high},
     )
     assert len(merged) == 2
-    assert merged[0].url == "https://b.com"  # weight 高的排前
-    assert merged[1].provider == "exa"       # 同 URL 保留高权重来源
-    assert merged[1].title == "better title here"
+    assert merged[0].url == "https://a.com/x"  # 去重后保留高权重来源，且位置靠前得分最高
+    assert merged[0].provider == "exa"
+    assert merged[0].title == "better title here"
+    assert merged[1].url == "https://b.com"
 
 
 def test_merge_search_truncates_to_limit():
@@ -1563,14 +1574,14 @@ class ExaProvider(Provider):
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
         body = {"query": query, "num_results": limit, "type": "auto", "contents": {"text": True}}
-        return await self._run(self.SEARCH_URL, body, limit, self._map_search)
+        return await self._run(self.SEARCH_URL, body, self._map_search, limit=limit)
 
     async def extract(self, urls: list[str], *, fmt: str = "markdown",
                       max_chars: int = 15000) -> list[ExtractItem]:
         body = {"urls": urls, "text": True}
-        return await self._run(self.CONTENTS_URL, body, 0, self._map_extract, max_chars=max_chars)
+        return await self._run(self.CONTENTS_URL, body, self._map_extract, max_chars=max_chars)
 
-    async def _run(self, url: str, body: dict, limit: int, mapper, **kw):
+    async def _run(self, url: str, body: dict, mapper, **kw):
         async with self._use_key() as key:
             headers = {"x-api-key": key}
             try:
@@ -3101,7 +3112,7 @@ router = APIRouter(prefix="/v1/search", tags=["search"], dependencies=[Depends(r
 
 
 class SearchBody(BaseModel):
-    q: str
+    q: str = ""
     limit: int = Field(default=5, ge=1, le=50)
     providers: str | None = None
     strategy: str | None = None
@@ -3110,7 +3121,7 @@ class SearchBody(BaseModel):
 
 
 @router.get("")
-async def search_get(request: Request, q: str, limit: int = 5, providers: str | None = None,
+async def search_get(request: Request, q: str = "", limit: int = 5, providers: str | None = None,
                      strategy: str | None = None, cache: bool = True,
                      timeout: float | None = None):
     if not q:
@@ -3381,4 +3392,4 @@ git commit -m "docs: quickstart and API examples for M1"
 - **Spec 覆盖**：M1 范围（注册表/Key 池/三种策略/缓存/REST/config+secrets/测试）全覆盖：Task 4=Key 池，Task 5=注册表，Task 6=合并，Task 7=策略，Task 8-12=六个 adapter，Task 13=缓存，Task 14=orchestrator，Task 15=REST+鉴权，Task 2=配置。hermes 契约形状（`data.web[].title/url/description/position`、错误 `{"success": false, "error"}`、单 URL 提取失败带 error 字段）在 Task 15 测试中锁定。密钥掩码/脱敏：KeyPool.status 掩码（Task 4）、密钥不出现在日志/响应。M2 之后的内容（管理 UI/统计面板/MCP/插件）明确不在本计划。
 - **占位符扫描**：无 TBD/TODO；每个 adapter 都有完整实现代码与测试代码。
 - **类型一致性**：`Outcome`（strategies.py）字段 `provider_id/items/error/took_ms` 在 merge/orchestrator 中一致使用；`Provider` 构造签名 `(cfg, keys, http)` 全 adapter 一致；`merge_search(outcomes, limit, providers)` 与 orchestrator 调用一致；`SearchResponse(success, data, meta)` 与 routes 一致；`include_raw=false` 在 route 层置空 raw_content 与测试一致。
-- 已知取舍：`/v1/search` GET 模式下 FastAPI 对 `q` 必填返回 422（非 400）——M1 接受，M2 统一异常处理器时处理。
+- 已知取舍：`/v1/search`/`/v1/extract` 的非法参数（如 format 非 text/markdown）返回 400 且 body 为 `{"success": false, "error": ...}`；但 Pydantic 层校验失败（如 limit 超界、urls 超 20 个）仍返回 FastAPI 默认 422 `{"detail": ...}`——M1 接受，M2 统一异常处理器时收敛为统一形状。
