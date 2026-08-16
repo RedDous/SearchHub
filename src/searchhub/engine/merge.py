@@ -45,16 +45,19 @@ def merge_search(outcomes: list[Outcome], limit: int,
 def merge_extract(outcomes: list[Outcome], urls: list[str],
                   providers: dict[str, Provider]) -> list[ExtractItem]:
     by_url: dict[str, ExtractItem] = {}
-    failed: dict[str, str] = {}
+    first_error: dict[str, str] = {}
     for out in outcomes:
         if out.error:
             for url in urls:
-                failed.setdefault(url, out.error)
+                first_error.setdefault(url, out.error)
             continue
         if not out.items:
             continue
         w = _weight(providers, out.provider_id)
         for item in out.items:
+            if item.error is not None:
+                first_error.setdefault(item.url, item.error)
+                continue
             prev = by_url.get(item.url)
             if prev is None or _weight(providers, prev.provider) < w:
                 by_url[item.url] = item
@@ -62,7 +65,7 @@ def merge_extract(outcomes: list[Outcome], urls: list[str],
     for url in urls:
         item = by_url.get(url)
         if item is None:
-            result.append(ExtractItem(url=url, error=failed.get(url, "all providers failed")))
+            result.append(ExtractItem(url=url, error=first_error.get(url) or "all providers failed"))
         else:
             result.append(item)
     return result

@@ -73,3 +73,23 @@ def test_merge_extract_error_item_when_all_fail():
     merged = merge_extract(outcomes, ["https://a.com"], {"jina": prov})
     assert merged[0].error == "boom"
     assert merged[0].url == "https://a.com"
+
+
+def test_merge_extract_prefers_success_over_higher_weight_error():
+    high = make_provider("exa", 10)
+    low = make_provider("trafilatura", 5)
+    outcomes = [
+        Outcome("exa", [ExtractItem(url="https://a.com", error="site blocked", provider="exa")]),
+        Outcome("trafilatura", [ExtractItem(url="https://a.com", content="ok", provider="trafilatura")]),
+    ]
+    merged = merge_extract(outcomes, ["https://a.com"], {"exa": high, "trafilatura": low})
+    assert merged[0].error is None
+    assert merged[0].provider == "trafilatura"
+    assert merged[0].content == "ok"
+
+
+def test_merge_extract_error_item_surfaces_when_no_success():
+    prov = make_provider("exa", 10)
+    outcomes = [Outcome("exa", [ExtractItem(url="https://a.com", error="site blocked", provider="exa")])]
+    merged = merge_extract(outcomes, ["https://a.com"], {"exa": prov})
+    assert merged[0].error == "site blocked"
