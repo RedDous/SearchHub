@@ -65,7 +65,7 @@ tests/
   - `ConfigService.session_secret() -> bytes`（`data/session_secret` 文件，不存在则生成 32 字节 hex，mode 600）
   - `ConfigService.save_secrets(secrets_map: dict[str, str]) -> None`（tmp+os.replace 原子写，mode 600，更新 `_secrets` 与 `_mtime`）
   - `ConfigService.add_provider_key(provider_id: str, key: str) -> None`（空 key 抛 ValueError；键名 `{PID}_KEY_{N}` 取最大 N+1）
-  - `ConfigService.remove_provider_key(provider_id: str, index: int) -> None`（越界抛 IndexError；删除后其余 key 重编号保持连续）
+  - `ConfigService.remove_provider_key(provider_id: str, index: int) -> None`（越界抛 IndexError；删除后其余 key 保持原编号（不重排，与测试一致））
   - `ConfigService.updated_at -> float`（config.yaml mtime，不存在返回 0.0）
 
 - [ ] **Step 1: 写失败测试**
