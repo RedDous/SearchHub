@@ -1,8 +1,9 @@
 from pathlib import Path
 
 import pytest
+import yaml
 
-from searchhub.config import AppConfig, ConfigService, ProviderConfig
+from searchhub.config import AppConfig, ConfigService, ProviderConfig, StrategyConfig
 
 
 def test_load_creates_defaults(data_dir: Path):
@@ -75,3 +76,29 @@ def test_invalid_provider_capability_rejected_on_save(data_dir: Path):
     cfg.providers = [ProviderConfig(id="exa", capabilities=["search", "crawl"])]
     with pytest.raises(Exception):
         cs.save_config(cfg)
+
+
+def test_save_failure_leaves_disk_and_memory_unchanged(data_dir: Path, monkeypatch):
+    cs = ConfigService(data_dir)
+    cs.load()
+    old_cfg = cs.get()
+    old_cfg.strategy.default_mode = "primary_fallback"
+    cs.save_config(old_cfg)
+    new_cfg = AppConfig(
+        strategy=StrategyConfig(default_mode="rotation"),
+        providers=[ProviderConfig(id="exa", capabilities=["search"])],
+    )
+
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(yaml, "safe_dump", boom)
+    with pytest.raises(OSError):
+        cs.save_config(new_cfg)
+
+    assert cs.get() is old_cfg
+    on_disk = AppConfig.model_validate(
+        yaml.safe_load((data_dir / "config.yaml").read_text()) or {}
+    )
+    assert on_disk.strategy.default_mode == "primary_fallback"
+    assert not list(data_dir.glob("config.yaml.tmp"))

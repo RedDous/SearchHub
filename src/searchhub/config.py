@@ -98,8 +98,8 @@ class ConfigService:
             for c in p.capabilities:
                 if c not in CAPABILITIES:
                     raise ValueError(f"invalid capability: {c!r}")
-        self._cfg = cfg
         self._write_yaml(cfg)
+        self._cfg = cfg
 
     def maybe_reload(self) -> bool:
         if not self._loaded:
@@ -130,7 +130,14 @@ class ConfigService:
                 self.config_path, self.config_path.with_name(f"{self.config_path.name}.bak1")
             )
         raw = cfg.model_dump(mode="json")
-        yaml.safe_dump(raw, self.config_path.open("w"), allow_unicode=True, sort_keys=False)
+        tmp = self.config_path.with_name(f"{self.config_path.name}.tmp")
+        try:
+            with tmp.open("w") as f:
+                yaml.safe_dump(raw, f, allow_unicode=True, sort_keys=False)
+            os.replace(tmp, self.config_path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
         self.config_version += 1
         self._mtime = self._stat()
 
