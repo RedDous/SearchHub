@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import HTTPException, Request
 
 from searchhub.config import AppConfig
 
