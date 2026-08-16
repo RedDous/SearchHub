@@ -36,6 +36,16 @@ def test_history_filters_and_pagination(admin_client, caller_token):
     assert r.json()["data"]["rows"] == []
 
 
+def test_history_negative_limit_is_clamped(admin_client, caller_token):
+    headers = {"Authorization": f"Bearer {caller_token}"}
+    for i in range(3):
+        admin_client.get("/v1/search", params={"q": f"q{i}"}, headers=headers)
+    r = admin_client.get("/api/admin/history", params={"limit": -5})
+    assert r.status_code == 200
+    rows = r.json()["data"]["rows"]
+    assert len(rows) == 0
+
+
 def test_stats_summary_and_timeseries(admin_client, caller_token):
     headers = {"Authorization": f"Bearer {caller_token}"}
     for i in range(3):

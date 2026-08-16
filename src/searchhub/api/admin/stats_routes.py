@@ -18,7 +18,7 @@ async def list_history(request: Request, capability: str | None = None,
     rows = await request.app.state.engine.history.query(
         capability=capability, provider=provider, token=token,
         from_ts=from_ts, to_ts=to_ts, q=q,
-        limit=min(limit, 500), offset=max(offset, 0))
+        limit=max(min(limit, 500), 0), offset=max(offset, 0))
     return {"success": True, "data": {"rows": rows}}
 
 
