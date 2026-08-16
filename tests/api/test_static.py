@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 
@@ -40,3 +41,27 @@ def test_no_dist_no_mount(data_dir, monkeypatch):
     monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(data_dir / "missing-dist"))
     with TestClient(create_app(data_dir)) as c:
         assert c.get("/").status_code == 404
+
+
+def test_path_traversal_blocked(data_dir, monkeypatch):
+    dist = make_dist(data_dir)
+    monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(dist))
+    with TestClient(create_app(data_dir)) as c:
+        r = c.get(quote("../../etc/passwd", safe=""))
+        assert r.status_code == 404, r.text
+        assert "root:" not in r.text
+        r = c.get(quote("/etc/passwd", safe=""))
+        assert r.status_code == 404, r.text
+        assert "root:" not in r.text
+        r = c.get(quote("..\\..\\etc\\passwd", safe=""))
+        assert r.status_code == 404, r.text
+        assert "root:" not in r.text
+
+
+def test_spa_fallback_deep_path(data_dir, monkeypatch):
+    dist = make_dist(data_dir)
+    monkeypatch.setenv("SEARCHHUB_WEB_DIST", str(dist))
+    with TestClient(create_app(data_dir)) as c:
+        r = c.get("/providers/new")
+        assert r.status_code == 200
+        assert r.text == "<html>spa</html>"

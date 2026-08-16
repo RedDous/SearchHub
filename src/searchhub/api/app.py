@@ -116,9 +116,11 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         async def spa_fallback(full_path: str):
             if full_path.startswith(("api/", "v1/", "healthz", "readyz")):
                 raise HTTPException(404, "not found")
-            if any(seg == ".." for seg in full_path.split("/")):
+            if any(seg == ".." for seg in full_path.split("/")) or "\\" in full_path:
                 raise HTTPException(404, "not found")
-            target = dist / full_path
+            target = (dist / full_path).resolve()
+            if not target.is_relative_to(dist.resolve()):
+                raise HTTPException(404, "not found")
             if full_path and target.is_file():
                 return FileResponse(target)
             return FileResponse(dist / "index.html")
