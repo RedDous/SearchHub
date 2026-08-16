@@ -10,6 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from searchhub import __version__
+from searchhub.api.admin.session import SessionStore, router as admin_session_router
 from searchhub.api.routes_extract import router as extract_router
 from searchhub.api.routes_health import router as health_router
 from searchhub.api.routes_providers import router as providers_router
@@ -34,6 +35,7 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
         engine.maybe_reload()
         app.state.engine = engine
         app.state.http = http
+        app.state.session_store = SessionStore(config.session_secret())
         yield
         await http.aclose()
         await cache.close()
@@ -65,4 +67,5 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.include_router(search_router)
     app.include_router(extract_router)
     app.include_router(providers_router)
+    app.include_router(admin_session_router)
     return app
