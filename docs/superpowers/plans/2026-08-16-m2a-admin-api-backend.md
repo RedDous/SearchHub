@@ -1080,6 +1080,7 @@ git commit -m "feat: record search/extract history in engine with redaction"
 
 **Files:**
 - Create: `src/searchhub/api/admin/config_routes.py`
+- Modify: `src/searchhub/api/app.py`（import + 挂载 `admin_config_router`）
 - Test: `tests/api/admin/test_config_routes.py`
 
 **Interfaces:**
@@ -1312,6 +1313,8 @@ async def update_settings(body: SettingsBody, request: Request):
     return {"success": True, "data": {"config_version": svc.config_version}}
 ```
 
+> 本任务必须把 `config_routes` 挂载到 app（否则测试 404）。在 `src/searchhub/api/app.py`：import 区追加 `from searchhub.api.admin.config_routes import router as admin_config_router`，并在 `app.include_router(admin_session_router)` 之后追加 `app.include_router(admin_config_router)`。Task 8 会整体替换 app.py（届时包含全部 admin 路由），此挂载将被吸收。
+
 - [ ] **Step 4: 运行确认通过**
 
 Run: `.venv/bin/pytest tests/api/admin/test_config_routes.py -v`
@@ -1332,6 +1335,7 @@ git commit -m "feat: admin config view, provider CRUD, connection test, settings
 - Create: `src/searchhub/api/admin/keys_routes.py`
 - Create: `src/searchhub/api/admin/token_routes.py`
 - Modify: `src/searchhub/api/auth.py`（`_authorized` 跳过 `revoked`）
+- Modify: `src/searchhub/api/app.py`（import + 挂载 `admin_keys_router`、`admin_token_router`）
 - Test: `tests/api/admin/test_keys_tokens.py`
 
 **Interfaces:**
@@ -1554,6 +1558,11 @@ async def delete_token(token_id: str, request: Request):
     return {"success": True}
 ```
 
+> 本任务必须把两个 router 挂载到 app（否则测试 404）：`src/searchhub/api/app.py` import 区追加
+> `from searchhub.api.admin.keys_routes import router as admin_keys_router` 与
+> `from searchhub.api.admin.token_routes import router as admin_token_router`，
+> 并在 `app.include_router(admin_config_router)` 之后各追加一行 `app.include_router(...)`。Task 8 整体替换 app.py 时吸收。
+
 `src/searchhub/api/auth.py` 的 `_authorized` 修改：
 ```python
 def _authorized(config: AppConfig, token: str) -> bool:
@@ -1584,6 +1593,7 @@ git commit -m "feat: admin key pool and caller-token management, revoked token s
 
 **Files:**
 - Create: `src/searchhub/api/admin/stats_routes.py`
+- Modify: `src/searchhub/api/app.py`（import + 挂载 `admin_stats_router`）
 - Test: `tests/api/admin/test_stats_routes.py`
 
 **Interfaces:**
@@ -1701,6 +1711,8 @@ async def stats_timeseries(request: Request, hours: int = 24):
     rows = await request.app.state.engine.history.timeseries(since, 3600)
     return {"success": True, "data": {"rows": rows}}
 ```
+
+> 本任务必须把 `stats_routes` 挂载到 app（否则测试 404）：`src/searchhub/api/app.py` import 区追加 `from searchhub.api.admin.stats_routes import router as admin_stats_router`，并在 `app.include_router(admin_token_router)` 之后追加 `app.include_router(admin_stats_router)`。Task 8 整体替换 app.py 时吸收。
 
 - [ ] **Step 4: 运行确认通过**
 
