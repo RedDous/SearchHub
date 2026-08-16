@@ -62,3 +62,34 @@ def test_search_no_provider_returns_error(data_dir):
         r = c.get("/v1/search", params={"q": "x"}, headers=AUTH)
         assert r.status_code == 200
         assert r.json()["success"] is False
+
+
+def test_search_validation_error(client):
+    r = client.post("/v1/search", json={"q": "x", "limit": 0}, headers=AUTH)
+    assert r.status_code == 422
+    body = r.json()
+    assert body["success"] is False
+    assert body["error"].startswith("validation error:")
+
+
+def test_search_internal_error(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.auth = AuthConfig(tokens=[TokenEntry(name="t", token_hash=hashlib.sha256(b"tok").hexdigest())])
+    cfg.providers = [ProviderConfig(id="ddg", capabilities=["search"])]
+    cs.save_config(cfg)
+    with TestClient(create_app(data_dir), raise_server_exceptions=False) as c:
+        async def boom(query, limit=5, **kw):
+            raise RuntimeError("boom")
+
+        original = c.app.state.engine.search
+        c.app.state.engine.search = boom
+        try:
+            r = c.get("/v1/search", params={"q": "x"}, headers=AUTH)
+        finally:
+            c.app.state.engine.search = original
+    assert r.status_code == 500
+    body = r.json()
+    assert body["success"] is False
+    assert body["error"] == "internal error"

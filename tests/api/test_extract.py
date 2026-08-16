@@ -63,3 +63,42 @@ def test_extract_include_raw_false(client):
 def test_extract_invalid_format(client):
     r = client.get("/v1/extract", params={"urls": "https://a.com", "format": "pdf"}, headers=AUTH)
     assert r.status_code == 400
+
+
+def test_extract_empty_urls_body(client):
+    r = client.post("/v1/extract", json={"urls": []}, headers=AUTH)
+    assert r.status_code == 422
+    body = r.json()
+    assert body["success"] is False
+    assert body["error"].startswith("validation error:")
+
+
+def test_extract_missing_urls_param(client):
+    r = client.get("/v1/extract", headers=AUTH)
+    assert r.status_code == 422
+    body = r.json()
+    assert body["success"] is False
+    assert body["error"].startswith("validation error:")
+
+
+def test_extract_internal_error(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.auth = AuthConfig(tokens=[TokenEntry(name="t", token_hash=hashlib.sha256(b"tok").hexdigest())])
+    cfg.providers = [ProviderConfig(id="trafilatura", capabilities=["extract"])]
+    cs.save_config(cfg)
+    with TestClient(create_app(data_dir), raise_server_exceptions=False) as c:
+        async def boom(urls, **kw):
+            raise RuntimeError("boom")
+
+        original = c.app.state.engine.extract
+        c.app.state.engine.extract = boom
+        try:
+            r = c.post("/v1/extract", json={"urls": ["https://a.com"]}, headers=AUTH)
+        finally:
+            c.app.state.engine.extract = original
+    assert r.status_code == 500
+    body = r.json()
+    assert body["success"] is False
+    assert body["error"] == "internal error"
