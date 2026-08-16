@@ -71,3 +71,16 @@ async def test_primary_fallback_falls_through():
         lambda p: p.call(),
     )
     assert o.provider_id == "b"
+
+
+@pytest.mark.asyncio
+async def test_fanout_repropagates_cancellation():
+    async def slow_call():
+        await asyncio.sleep(1)
+
+    calls = [(FakeProvider("a"), slow_call())]
+    task = asyncio.create_task(fanout(calls, timeout_s=5))
+    await asyncio.sleep(0.01)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

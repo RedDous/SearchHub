@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable, Coroutine
+from dataclasses import dataclass
+from typing import Callable, Coroutine
 
 from searchhub.providers.base import Provider, ProviderError
 
@@ -33,6 +33,8 @@ async def fanout(calls: list[tuple[Provider, Coroutine]], timeout_s: float) -> l
         try:
             items = await asyncio.wait_for(coro, timeout=timeout_s)
             return Outcome(provider_id=p.id, items=items, took_ms=(time.monotonic() - start) * 1000)
+        except asyncio.CancelledError:
+            raise
         except BaseException as e:
             return Outcome.error_outcome(p.id, e, (time.monotonic() - start) * 1000)
 
@@ -57,6 +59,8 @@ async def rotation(providers: list[Provider], cap: str, timeout_s: float,
                               took_ms=(time.monotonic() - start) * 1000)
             _ROTATION_CURSOR[cap] = (cursor + i + 1) % len(providers)
             return outcome
+        except asyncio.CancelledError:
+            raise
         except BaseException as e:
             last = Outcome.error_outcome(p.id, e, (time.monotonic() - start) * 1000)
     _ROTATION_CURSOR[cap] = (cursor + len(providers)) % len(providers)
@@ -74,6 +78,8 @@ async def primary_fallback(providers: list[Provider], cap: str, timeout_s: float
             items = await asyncio.wait_for(call(p), timeout=timeout_s)
             return Outcome(provider_id=p.id, items=items,
                            took_ms=(time.monotonic() - start) * 1000)
+        except asyncio.CancelledError:
+            raise
         except BaseException as e:
             last = Outcome.error_outcome(p.id, e, (time.monotonic() - start) * 1000)
     return last
