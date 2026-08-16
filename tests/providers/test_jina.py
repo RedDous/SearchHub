@@ -32,6 +32,17 @@ async def test_extract_sends_key_when_available():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_extract_rotates_keys_round_robin():
+    respx.get("https://r.jina.ai/https://a.com").mock(return_value=httpx.Response(200, text="x"))
+    provider = make_provider(["ka", "kb"])
+    await provider.extract(["https://a.com"])
+    await provider.extract(["https://a.com"])
+    auths = [c.request.headers.get("authorization") for c in respx.calls]
+    assert auths == ["Bearer ka", "Bearer kb"]
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_extract_failure_is_per_url():
     respx.get("https://r.jina.ai/https://bad.com").mock(return_value=httpx.Response(500))
     items = await make_provider().extract(["https://bad.com"])

@@ -26,11 +26,10 @@ class JinaProvider(Provider):
 
     async def _extract_one(self, url: str, fmt: str, max_chars: int) -> ExtractItem:
         headers = {"X-Return-Format": fmt}
-        key = self.keys[0] if self.keys else None
-        if key:
-            headers["Authorization"] = f"Bearer {key}"
         try:
             async with self._use_key() as k:
+                if k is not None:
+                    headers["Authorization"] = f"Bearer {k}"
                 resp = await self.http.get(self.BASE + url, headers=headers)
             if resp.status_code >= 400:
                 if k is not None:
