@@ -43,9 +43,19 @@ class CacheConfig(BaseModel):
     extract_ttl_s: int = Field(default=86400, ge=0)
 
 
+class TokenEntry(BaseModel):
+    name: str
+    token_hash: str
+
+
+class AuthConfig(BaseModel):
+    tokens: list[TokenEntry] = Field(default_factory=list)
+
+
 class AppConfig(BaseModel):
     strategy: StrategyConfig = StrategyConfig()
     cache: CacheConfig = CacheConfig()
+    auth: AuthConfig = AuthConfig()
     providers: list[ProviderConfig] = Field(default_factory=list)
 
     def provider(self, provider_id: str) -> ProviderConfig | None:
