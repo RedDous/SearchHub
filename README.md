@@ -64,7 +64,7 @@ auth:
 
 ## MCP Server（M3）
 
-MCP（Model Context Protocol）接入，让 AI 客户端（opencode / claude / cursor 等）直接调用搜索与提取能力。提供两个工具，返回形状与 REST `/v1` 一致的 JSON 字符串：
+MCP（Model Context Protocol）接入，让 AI 客户端（opencode / claude / cursor 等）直接调用搜索与提取能力。提供两个工具，返回单一 JSON 字符串（成功时形状与 REST `/v1` 的 data 部分一致，不含 `success` 标志——客户端按形状或错误字段探测）：
 
 - `web_search(query, limit=5, providers?, strategy?)`：网页搜索
 - `web_extract(urls, format="markdown", max_chars=15000)`：网页内容提取

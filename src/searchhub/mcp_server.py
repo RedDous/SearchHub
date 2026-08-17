@@ -127,7 +127,14 @@ def _auth_wrap(inner_app):
                 if header.startswith("Bearer "):
                     token = header[len("Bearer "):].strip()
                 break
-        if token is None or _authorized(_get_engine().config.get(), token) is None:
+        if token is None:
+            response = JSONResponse({"success": False, "error": "invalid token"},
+                                    status_code=401)
+            await response(scope, receive, send)
+            return
+        engine = _get_engine()
+        engine.config.maybe_reload()
+        if _authorized(engine.config.get(), token) is None:
             response = JSONResponse({"success": False, "error": "invalid token"},
                                     status_code=401)
             await response(scope, receive, send)
