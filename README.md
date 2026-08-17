@@ -62,6 +62,67 @@ auth:
 - 所有写操作原子写入 `data/config.yaml`/`data/secrets.env` 并热重载，自动滚动备份 5 份
 - 历史记录存 `data/history.db`，默认保留 30 天，后台每小时自动清理；`history.redact_queries: true` 可对 query 落盘前 sha1
 
+## MCP Server（M3）
+
+MCP（Model Context Protocol）接入，让 AI 客户端（opencode / claude / cursor 等）直接调用搜索与提取能力。提供两个工具，返回形状与 REST `/v1` 一致的 JSON 字符串：
+
+- `web_search(query, limit=5, providers?, strategy?)`：网页搜索
+- `web_extract(urls, format="markdown", max_chars=15000)`：网页内容提取
+
+支持两种传输：
+
+**stdio（本地 CLI，无需启动 HTTP 服务）**
+
+```bash
+SEARCHHUB_DATA=./data .venv/bin/python -m searchhub.mcp
+```
+
+MCP 客户端配置示例（stdio）：
+
+```json
+{
+  "mcpServers": {
+    "searchhub": {
+      "command": "python",
+      "args": ["-m", "searchhub.mcp"],
+      "env": {
+        "SEARCHHUB_DATA": "/path/to/searchhub/data"
+      }
+    }
+  }
+}
+```
+
+**streamable-http（经主服务挂载于 `/mcp`）**
+
+随主服务一起启动，无需额外进程。MCP 客户端配置示例：
+
+```json
+{
+  "mcpServers": {
+    "searchhub": {
+      "url": "http://127.0.0.1:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
+### 鉴权
+
+与 REST `/v1` 同一套调用方 Token：token 在管理后台「调用方 Token」页创建（或 `POST /api/admin/tokens`）。streamable-http 通过 `Authorization: Bearer <token>` 请求头携带；stdio 模式在本地直接调用，无需 token。请求头缺失或 token 无效返回 `401`。
+
+### 验证
+
+```bash
+# stdio 冒烟：正常时会持续等待标准输入，3 秒后被 timeout 终止（exit=124）
+timeout 3 .venv/bin/python -m searchhub.mcp; echo "exit=$?"
+```
+
+随后在任意 MCP 客户端（opencode / claude / cursor）中按上面的配置连接，调用 `web_search` / `web_extract` 即可。
+
 ## 测试
 
 ```bash
