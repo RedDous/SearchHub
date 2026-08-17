@@ -16,6 +16,7 @@ dependencies = [
     "aiosqlite>=0.20",
     "ddgs>=9.15",
     "trafilatura>=2.2",
+    "mcp>=2.0.0",
 ]
 
 [project.optional-dependencies]
