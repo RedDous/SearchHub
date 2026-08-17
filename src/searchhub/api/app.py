@@ -24,6 +24,7 @@ from searchhub.api.routes_health import router as health_router
 from searchhub.api.routes_providers import router as providers_router
 from searchhub.api.routes_search import router as search_router
 from searchhub.config import ConfigService
+from searchhub.mcp_server import build_mcp_route, create_mcp_server, set_engine as mcp_set_engine
 from searchhub.orchestrator import SearchHubEngine
 from searchhub.storage.cache import CacheRepo
 from searchhub.storage.history import RequestLogRepo
@@ -46,6 +47,7 @@ async def _cleanup_loop(history: RequestLogRepo, cache: CacheRepo | None,
 
 def create_app(data_dir: Path | None = None) -> FastAPI:
     data_dir = Path(data_dir) if data_dir else Path.cwd() / "data"
+    mcp_server = create_mcp_server()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -63,13 +65,16 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
             config.set_admin_password(default)
         engine = SearchHubEngine(config, cache, http, history=history)
         engine.maybe_reload()
+        mcp_set_engine(engine)
         app.state.engine = engine
         app.state.http = http
         app.state.history = history
         app.state.data_dir = data_dir
+        app.state.mcp = mcp_server
         app.state.session_store = SessionStore(config.session_secret())
         cleanup_task = asyncio.create_task(_cleanup_loop(history, cache, config))
-        yield
+        async with mcp_server.session_manager.run():
+            yield
         cleanup_task.cancel()
         await http.aclose()
         await cache.close()
@@ -107,6 +112,10 @@ def create_app(data_dir: Path | None = None) -> FastAPI:
     app.include_router(admin_keys_router)
     app.include_router(admin_token_router)
     app.include_router(admin_stats_router)
+
+    # Exact-path route (not a Mount): Starlette 1.6 mounts only match
+    # sub-paths, which would let the static catch-all below swallow /mcp.
+    app.router.routes.append(build_mcp_route(mcp_server))
 
     dist = Path(os.environ.get("SEARCHHUB_WEB_DIST", "")) if os.environ.get("SEARCHHUB_WEB_DIST") else Path(__file__).resolve().parents[3] / "frontend" / "dist"
     if dist.is_dir():

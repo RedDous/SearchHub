@@ -8,9 +8,13 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
+from fastapi.responses import JSONResponse
 from mcp.server.mcpserver import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import Field
+from starlette.routing import BaseRoute, Match, compile_path
 
+from searchhub.api.auth import _authorized
 from searchhub.config import ConfigService
 from searchhub.orchestrator import SearchHubEngine
 from searchhub.storage.cache import CacheRepo
@@ -86,5 +90,63 @@ def main() -> None:
     asyncio.run(_run_stdio())
 
 
-def build_mcp_asgi():
-    return create_mcp_server().streamable_http_app()
+class _ExactPathRoute(BaseRoute):
+    """Dispatch an ASGI app for exactly one path, without prefix stripping.
+
+    Starlette 1.6 Mounts only match sub-paths (``/mcp/x``), letting a
+    ``/{full_path:path}`` catch-all swallow the bare ``/mcp``. This route
+    matches the exact path so the raw MCP ASGI app runs on POST /mcp.
+    """
+
+    def __init__(self, path: str, app):
+        self.path_regex, _, _ = compile_path(path)
+        self.app = app
+
+    def matches(self, scope):
+        if scope["type"] not in ("http", "websocket"):
+            return Match.NONE, {}
+        if self.path_regex.match(scope["path"]):
+            return Match.FULL, {}
+        return Match.NONE, {}
+
+    async def handle(self, scope, receive, send):
+        await self.app(scope, receive, send)
+
+
+def _auth_wrap(inner_app):
+    """Wrap an ASGI app so HTTP requests require a valid bearer token."""
+
+    async def app(scope, receive, send):
+        if scope["type"] != "http":
+            await inner_app(scope, receive, send)
+            return
+        token = None
+        for key, value in scope["headers"]:
+            if key.lower() == b"authorization":
+                header = value.decode("latin-1")
+                if header.startswith("Bearer "):
+                    token = header[len("Bearer "):].strip()
+                break
+        if token is None or _authorized(_get_engine().config.get(), token) is None:
+            response = JSONResponse({"success": False, "error": "invalid token"},
+                                    status_code=401)
+            await response(scope, receive, send)
+            return
+        await inner_app(scope, receive, send)
+
+    return app
+
+
+def build_mcp_asgi(mcp_server: MCPServer | None = None):
+    if mcp_server is None:
+        mcp_server = create_mcp_server()
+    sdk_app = mcp_server.streamable_http_app(
+        json_response=True,
+        transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
+    )
+    return _auth_wrap(sdk_app)
+
+
+def build_mcp_route(mcp_server: MCPServer) -> _ExactPathRoute:
+    """Return a route serving the authenticated MCP app at exactly /mcp."""
+    return _ExactPathRoute("/mcp", build_mcp_asgi(mcp_server))
