@@ -1,0 +1,31 @@
+services:
+  searchhub:
+    build: .
+    image: searchhub:latest
+    container_name: searchhub
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?请在 .env 中设置 ADMIN_PASSWORD}
+    restart: unless-stopped
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: searchhub-searxng
+    profiles: ["sidecars"]
+    ports:
+      - "8080:8080"
+    environment:
+      SEARXNG_BASE_URL: http://127.0.0.1:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-please_change_me}
+    restart: unless-stopped
+
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: searchhub-crawl4ai
+    profiles: ["sidecars"]
+    ports:
+      - "11235:11235"
+    restart: unless-stopped
