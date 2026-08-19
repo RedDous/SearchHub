@@ -159,6 +159,8 @@ export const messages: Record<Lang, Record<string, string>> = {
     'system.wallpaperClear': '清除壁纸',
     'system.wallpaperTooLarge': '图片不能超过 2MB',
     'system.refresh': '刷新',
+    'setup.forceChangeTitle': '请修改默认密码',
+    'setup.forceChangeDesc': '您正在使用默认密码，出于安全考虑请立即修改。',
   },
   en: {
     'login.title': 'SearchHub Admin',
@@ -314,6 +316,8 @@ export const messages: Record<Lang, Record<string, string>> = {
     'system.wallpaperClear': 'Clear wallpaper',
     'system.wallpaperTooLarge': 'Image must be under 2MB',
     'system.refresh': 'Refresh',
+    'setup.forceChangeTitle': 'Change the default password',
+    'setup.forceChangeDesc': 'You are using the default password. Please change it now.',
   },
 }
 

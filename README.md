@@ -31,7 +31,7 @@ cp .env.example .env
 # 3. 构建并启动（首次构建含前端编译，约几分钟）
 docker compose up -d --build
 
-# 4. 浏览器打开 http://<NAS-IP>:8000，用 .env 中的 ADMIN_PASSWORD 登录（用户名 admin）
+# 4. 打开 http://<NAS-IP>:8000，首次登录使用默认账号 admin / admin（或 .env 中设置的 ADMIN_PASSWORD），登录后系统会强制要求修改密码
 ```
 
 **可选 sidecar**（搜索引擎聚合与网页提取副车，按需启用）：

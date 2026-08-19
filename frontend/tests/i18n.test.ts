@@ -21,4 +21,11 @@ describe('i18n', () => {
     setLang('en')
     expect(localStorage.getItem('sh_lang')).toBe('en')
   })
+
+  it('has force-change-password keys in both languages', () => {
+    expect(messages.zh['setup.forceChangeTitle']).toBe('请修改默认密码')
+    expect(messages.zh['setup.forceChangeDesc']).toBe('您正在使用默认密码，出于安全考虑请立即修改。')
+    expect(messages.en['setup.forceChangeTitle']).toBe('Change the default password')
+    expect(messages.en['setup.forceChangeDesc']).toBe('You are using the default password. Please change it now.')
+  })
 })

@@ -48,6 +48,23 @@ describe('auth store', () => {
     expect(store.loggedIn).toBe(false)
   })
 
+  it('isDefaultPassword true when config reports default password', async () => {
+    const store = useAuthStore()
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: { password_is_default: true } }), { status: 200 }),
+    )
+    expect(await store.isDefaultPassword()).toBe(true)
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/admin/config')
+  })
+
+  it('isDefaultPassword false when password has been changed', async () => {
+    const store = useAuthStore()
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ success: true, data: { password_is_default: false } }), { status: 200 }),
+    )
+    expect(await store.isDefaultPassword()).toBe(false)
+  })
+
   it('setOnUnauthorized replaces the hook and restores the original', () => {
     const original = onUnauthorized
     const spy = vi.fn()

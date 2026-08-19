@@ -17,6 +17,10 @@ export const useAuthStore = defineStore('auth', {
       await adminApi.login(username, password)
       this.loggedIn = true
     },
+    async isDefaultPassword(): Promise<boolean> {
+      const cfg = await adminApi.getConfig()
+      return cfg.password_is_default
+    },
     async logout(): Promise<void> {
       try {
         await adminApi.logout()

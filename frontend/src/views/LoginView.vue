@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { onUnauthorized, setOnUnauthorized } from '@/api/client'
@@ -38,7 +38,12 @@ async function submit() {
   setOnUnauthorized(() => {})
   try {
     await auth.login(username.value, password.value)
-    router.push({ name: 'dashboard' })
+    if (await auth.isDefaultPassword()) {
+      router.push({ name: 'system' })
+      await nextTick()
+    } else {
+      router.push({ name: 'dashboard' })
+    }
   } catch (e) {
     message.error(e instanceof Error ? e.message : t('login.error'))
   } finally {

@@ -61,6 +61,8 @@
         </n-form-item>
       </n-form>
     </n-card>
+
+    <ForcePasswordDialog v-model:open="forceOpen" @changed="onForcePasswordChanged" />
   </div>
 </template>
 
@@ -69,11 +71,14 @@ import { onMounted, reactive, ref } from 'vue'
 import { useMessage } from 'naive-ui'
 import type { UploadCustomRequestOptions } from 'naive-ui'
 import { adminApi, type AppConfigView } from '@/api/admin'
+import ForcePasswordDialog from '@/components/ForcePasswordDialog.vue'
 import { t, type Lang } from '@/i18n'
 import { useUiStore } from '@/stores/ui'
 
 const message = useMessage()
 const ui = useUiStore()
+
+let forcePromptShown = false
 
 const pwd = reactive({ old: '', next: '', confirm: '' })
 const saving = ref(false)
@@ -151,17 +156,26 @@ async function onChangePassword() {
 
 const config = ref<AppConfigView | null>(null)
 const cfgLoading = ref(false)
+const forceOpen = ref(false)
 
 async function loadConfig() {
   if (cfgLoading.value) return
   cfgLoading.value = true
   try {
     config.value = await adminApi.getConfig()
+    if (config.value.password_is_default && !forcePromptShown) {
+      forcePromptShown = true
+      forceOpen.value = true
+    }
   } catch (e) {
     message.error(e instanceof Error ? e.message : t('common.failed'))
   } finally {
     cfgLoading.value = false
   }
+}
+
+function onForcePasswordChanged() {
+  loadConfig()
 }
 
 onMounted(loadConfig)
