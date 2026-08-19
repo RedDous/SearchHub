@@ -11,7 +11,7 @@ def test_config_shows_masked_secrets(admin_client):
         assert "****" in t["token_hash"]
 
 
-def test_config_reports_default_password(admin_client, data_dir):
+def test_config_reports_default_password(admin_client):
     # admin_client fixture 预设了 testpass123（非默认）→ password_is_default=False
     data = admin_client.get("/api/admin/config").json()["data"]
     assert data["password_is_default"] is False

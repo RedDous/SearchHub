@@ -23,9 +23,9 @@ SEARCHHUB_DATA=./data .venv/bin/python -m searchhub
 # 1. 克隆仓库
 git clone https://github.com/RedDous/SearchHub.git && cd SearchHub
 
-# 2. 复制环境变量文件并设置管理员密码
-cp .env.example .env
-# 编辑 .env，将 ADMIN_PASSWORD 改为强密码（首次启动用于创建管理员账号）
+# 2. （可选）如需自定义首次密码，复制环境变量文件并取消注释 ADMIN_PASSWORD 行
+# cp .env.example .env
+# 首次启动的默认账号为 admin / admin；不设置 ADMIN_PASSWORD 即可零配置启动
 # .env 中若密码含 $，请用 $$ 转义，否则 compose 会做变量插值
 
 # 3. 构建并启动（首次构建含前端编译，约几分钟）

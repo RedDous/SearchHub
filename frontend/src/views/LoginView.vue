@@ -38,7 +38,13 @@ async function submit() {
   setOnUnauthorized(() => {})
   try {
     await auth.login(username.value, password.value)
-    if (await auth.isDefaultPassword()) {
+    let isDefault = false
+    try {
+      isDefault = await auth.isDefaultPassword()
+    } catch {
+      isDefault = false
+    }
+    if (isDefault) {
       router.push({ name: 'system' })
       await nextTick()
     } else {

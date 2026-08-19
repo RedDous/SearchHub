@@ -5,6 +5,7 @@
     :title="t('setup.forceChangeTitle')"
     :mask-closable="false"
     :close-on-esc="false"
+    :closable="false"
     style="width: 420px"
     @update:show="onUpdateShow"
   >
