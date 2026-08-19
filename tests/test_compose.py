@@ -18,8 +18,8 @@ def test_searchhub_service_shape(compose: dict):
     assert svc["ports"] == ["8000:8000"]
     assert svc["volumes"] == ["./data:/data"]
     assert svc["environment"]["SEARCHHUB_DATA"] == "/data"
-    assert ":?" in svc["environment"]["ADMIN_PASSWORD"]
-    assert "ADMIN_PASSWORD" in svc["environment"]["ADMIN_PASSWORD"]
+    assert svc["environment"]["ADMIN_PASSWORD"] == "${ADMIN_PASSWORD:-admin}"
+    assert ":?" not in svc["environment"]["ADMIN_PASSWORD"]  # 已改为可选，不再强制
     assert svc["restart"] == "unless-stopped"
     assert "build" in svc
 

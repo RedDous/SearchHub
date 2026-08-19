@@ -9,7 +9,7 @@ services:
       - ./data:/data
     environment:
       SEARCHHUB_DATA: /data
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?请在 .env 中设置 ADMIN_PASSWORD}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     restart: unless-stopped
 
   searxng:

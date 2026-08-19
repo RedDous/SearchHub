@@ -11,6 +11,23 @@ def test_config_shows_masked_secrets(admin_client):
         assert "****" in t["token_hash"]
 
 
+def test_config_reports_default_password(admin_client, data_dir):
+    # admin_client fixture 预设了 testpass123（非默认）→ password_is_default=False
+    data = admin_client.get("/api/admin/config").json()["data"]
+    assert data["password_is_default"] is False
+
+
+def test_config_reports_default_password_when_default(admin_client, data_dir):
+    from searchhub.config import ConfigService
+
+    # 手动把密码重置为默认 admin 模拟未改密用户
+    cs = ConfigService(data_dir)
+    cs.load()
+    cs.set_admin_password("admin")
+    data = admin_client.get("/api/admin/config").json()["data"]
+    assert data["password_is_default"] is True
+
+
 def test_provider_crud(admin_client):
     body = {"id": "ddg", "capabilities": ["search"], "enabled": True, "weight": 5}
     r = admin_client.post("/api/admin/providers", json=body)
