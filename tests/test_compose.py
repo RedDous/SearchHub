@@ -17,6 +17,7 @@ def test_searchhub_service_shape(compose: dict):
     svc = compose["services"]["searchhub"]
     assert svc["ports"] == ["8000:8000"]
     assert svc["volumes"] == ["./data:/data"]
+    assert svc["environment"]["SEARCHHUB_DATA"] == "/data"
     assert "ADMIN_PASSWORD" in svc["environment"]["ADMIN_PASSWORD"]
     assert svc["restart"] == "unless-stopped"
     assert "build" in svc
