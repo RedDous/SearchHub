@@ -11,6 +11,50 @@ SEARCHHUB_DATA=./data .venv/bin/python -m searchhub
 
 首次启动自动生成 `data/config.yaml` 与 `data/secrets.env`。
 
+## Docker 部署（M4）
+
+适合 NAS 等家用自托管场景的一键部署。
+
+**前提**：已安装 Docker 与 Docker Compose v2。
+
+**步骤：**
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/RedDous/SearchHub.git && cd SearchHub
+
+# 2. 复制环境变量文件并设置管理员密码
+cp .env.example .env
+# 编辑 .env，将 ADMIN_PASSWORD 改为强密码（首次启动用于创建管理员账号）
+
+# 3. 构建并启动（首次构建含前端编译，约几分钟）
+docker compose up -d --build
+
+# 4. 浏览器打开 http://<NAS-IP>:8000，用 .env 中的 ADMIN_PASSWORD 登录（用户名 admin）
+```
+
+**可选 sidecar**（搜索引擎聚合与网页提取副车，按需启用）：
+
+```bash
+docker compose --profile sidecars up -d
+```
+
+然后在管理后台添加供应商：searxng（base_url `http://searxng:8080`）与 crawl4ai（base_url `http://crawl4ai:11235`）。
+
+**数据与备份**：全部数据位于 `./data/`（config.yaml、secrets.env、history.db、cache.db、session_secret）。备份 = 拷贝整个目录；恢复 = 拷贝回去后重启服务。
+
+**更新**：
+
+```bash
+git pull && docker compose up -d --build
+```
+
+**说明**：
+
+- 镜像内以 root 运行（NAS 家用场景简化；如需非 root 可在 compose 中加 `user:`）
+- 前端已内置（`SEARCHHUB_WEB_DIST` 指向镜像内路径），无需在 NAS 上单独构建
+- 本机无 docker 时的替代冒烟：`python -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"`（结构测试已覆盖 compose 与服务名）
+
 ## 配置示例
 
 `data/secrets.env`（密钥，权限 600）：
