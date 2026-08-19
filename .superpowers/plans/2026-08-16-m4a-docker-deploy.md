@@ -15,7 +15,7 @@
 - 构建：builder 内 `npm ci && npm run build`（`frontend/package-lock.json` 已提交）；runtime 内 `pip install . --no-cache-dir`（pyproject 的 src 布局；setuptools>=68 已满足）
 - compose 服务 `searchhub`：`build: .`、`ports: "8000:8000"`、`volumes: ./data:/data`、`environment: ADMIN_PASSWORD=${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}`（缺失即报错，防默认密码裸奔）、`restart: unless-stopped`
 - sidecar 服务（`profiles: ["sidecars"]`）：`searxng`（image searxng/searxng:latest，ports 8080:8080，环境 SEARXNG_BASE_URL）、`crawl4ai`（image unclecode/crawl4ai:latest，ports 11235:11235）
-- `.env.example` 含 `ADMIN_PASSWORD=` 与 `SEARCHHUB_PORT=8000`（仅示例，compose 用 ${ADMIN_PASSWORD} 注入）
+- `.env.example` 含 `ADMIN_PASSWORD=` 与 `SEARXNG_SECRET=`（SEARCHHUB_PORT 由 compose 固定 8000:8000）
 - `.dockerignore`：`.git`、`.venv`、`data`、`frontend/node_modules`、`frontend/dist`、`tests`、`tmp`、`.superpowers`、`docs`（docs 不进镜像）
 - `.gitignore` 追加 `data/`（本地运行产生的数据目录不入库）
 - 提交风格 `feat:`/`fix:`/`chore:`；现有 pytest 154 + vitest 17 必须保持全绿（本里程碑不改后端逻辑代码，仅新增部署文件与结构测试）

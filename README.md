@@ -26,6 +26,7 @@ git clone https://github.com/RedDous/SearchHub.git && cd SearchHub
 # 2. 复制环境变量文件并设置管理员密码
 cp .env.example .env
 # 编辑 .env，将 ADMIN_PASSWORD 改为强密码（首次启动用于创建管理员账号）
+# .env 中若密码含 $，请用 $$ 转义，否则 compose 会做变量插值
 
 # 3. 构建并启动（首次构建含前端编译，约几分钟）
 docker compose up -d --build
@@ -53,7 +54,7 @@ git pull && docker compose up -d --build
 
 - 镜像内以 root 运行（NAS 家用场景简化；如需非 root 可在 compose 中加 `user:`）
 - 前端已内置（`SEARCHHUB_WEB_DIST` 指向镜像内路径），无需在 NAS 上单独构建
-- 本机无 docker 时的替代冒烟：`python -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"`（结构测试已覆盖 compose 与服务名）
+- 本机无 docker 时的替代冒烟：`.venv/bin/python -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"`（结构测试已覆盖 compose 与服务名）
 
 ## 配置示例
 

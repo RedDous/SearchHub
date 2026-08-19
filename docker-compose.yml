@@ -19,7 +19,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      SEARXNG_BASE_URL: http://127.0.0.1:8080/
+      # 仅影响 searxng 自身 UI 显示的链接地址；SearchHub 后端经 compose 网络用 http://searxng:8080 访问，不受此值影响
+      SEARXNG_BASE_URL: http://<NAS-IP>:8080/
       SEARXNG_SECRET: ${SEARXNG_SECRET:-please_change_me}
     restart: unless-stopped
 
