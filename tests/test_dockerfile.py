@@ -26,7 +26,7 @@ def test_builder_builds_frontend(dockerfile: str):
 
 def test_runtime_env_and_copy(dockerfile: str):
     assert "SEARCHHUB_WEB_DIST=/app/web/dist" in dockerfile
-    assert "COPY --from=builder /build/frontend/dist /app/web/dist" in dockerfile
+    assert "COPY --from=builder /build/dist /app/web/dist" in dockerfile
     assert "RUN pip install . --no-cache-dir" in dockerfile
 
 
