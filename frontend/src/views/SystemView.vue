@@ -89,14 +89,14 @@ const langOptions = [
 ]
 
 const wallpaperPresets = [
-  "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%231d2b3a'/%3E%3Cstop offset='1' stop-color='%230e1620'/%3E%3C/linearGradient%3E%3Crect width='1600' height='900' fill='url(%23g)'/%3E%3C/svg%3E",
-  "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23667eea'/%3E%3Cstop offset='1' stop-color='%23764ba2'/%3E%3C/linearGradient%3E%3Crect width='1600' height='900' fill='url(%23g)'/%3E%3C/svg%3E",
-  "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2311998e'/%3E%3Cstop offset='1' stop-color='%2338ef7d'/%3E%3C/linearGradient%3E%3Crect width='1600' height='900' fill='url(%23g)'/%3E%3C/svg%3E",
-  "data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1600' height='900'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ff9966'/%3E%3Cstop offset='1' stop-color='%23ff5e62'/%3E%3C/linearGradient%3E%3Crect width='1600' height='900' fill='url(%23g)'/%3E%3C/svg%3E",
+  'linear-gradient(135deg, #1d2b3a, #0e1620)',
+  'linear-gradient(135deg, #667eea, #764ba2)',
+  'linear-gradient(135deg, #11998e, #38ef7d)',
+  'linear-gradient(135deg, #ff9966, #ff5e62)',
 ]
 
 function swatchStyle(p: string) {
-  return { backgroundImage: `url("${p}")` }
+  return { backgroundImage: p }
 }
 
 function onFile(file: File): boolean {

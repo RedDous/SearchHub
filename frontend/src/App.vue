@@ -29,8 +29,12 @@ const naiveTheme = computed(() => (ui.theme === 'dark' ? darkTheme : null))
 const naiveDateLocale = computed(() => (ui.lang === 'zh' ? dateZhCN : dateEnUS))
 
 function applyWallpaper() {
-  if (ui.wallpaper) {
-    document.documentElement.style.setProperty('--sh-wallpaper', `url("${ui.wallpaper}")`)
+  const w = ui.wallpaper
+  if (w) {
+    // 渐变/CSS 值或已带 url() 包装的按原样应用；图片 URL/dataURL 需包一层 url()
+    const isCssValue = w.startsWith('linear-gradient(') || w.startsWith('radial-gradient(') || w.startsWith('url(')
+    const value = isCssValue ? w : `url("${w}")`
+    document.documentElement.style.setProperty('--sh-wallpaper', value)
   } else {
     document.documentElement.style.removeProperty('--sh-wallpaper')
   }

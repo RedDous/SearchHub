@@ -1,8 +1,8 @@
 <template>
   <n-layout has-sider class="admin-layout">
     <n-layout-sider bordered :width="220" collapse-mode="width" :collapsed-width="64" :collapsed="collapsed" show-trigger @collapse="collapsed = true" @expand="collapsed = false">
-      <div class="logo">SearchHub</div>
-      <n-menu :value="activeKey" :options="menuOptions" @update:value="onMenuSelect" />
+<div class="logo">SearchHub</div>
+        <n-menu :value="activeKey" :options="menuOptions" :collapsed="collapsed" :collapsed-width="64" :collapsed-icon-size="20" @update:value="onMenuSelect" />
     </n-layout-sider>
     <n-layout>
       <n-layout-header bordered class="admin-header">
@@ -22,7 +22,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, h, ref, type Component } from 'vue'
+import { NIcon } from 'naive-ui'
+import {
+  CogOutline,
+  GridOutline,
+  KeyOutline,
+  ServerOutline,
+  SettingsOutline,
+  TimeOutline,
+} from '@vicons/ionicons5'
 import { useRoute, useRouter } from 'vue-router'
 import { t } from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -34,13 +43,17 @@ const auth = useAuthStore()
 const ui = useUiStore()
 const collapsed = ref(false)
 
+function icon(component: Component) {
+  return () => h(NIcon, null, { default: () => h(component) })
+}
+
 const menuOptions = computed(() => [
-  { label: t('nav.dashboard'), key: 'dashboard' },
-  { label: t('nav.providers'), key: 'providers' },
-  { label: t('nav.settings'), key: 'settings' },
-  { label: t('nav.tokens'), key: 'tokens' },
-  { label: t('nav.history'), key: 'history' },
-  { label: t('nav.system'), key: 'system' },
+  { label: t('nav.dashboard'), key: 'dashboard', icon: icon(GridOutline) },
+  { label: t('nav.providers'), key: 'providers', icon: icon(ServerOutline) },
+  { label: t('nav.settings'), key: 'settings', icon: icon(SettingsOutline) },
+  { label: t('nav.tokens'), key: 'tokens', icon: icon(KeyOutline) },
+  { label: t('nav.history'), key: 'history', icon: icon(TimeOutline) },
+  { label: t('nav.system'), key: 'system', icon: icon(CogOutline) },
 ])
 const activeKey = computed(() => String(route.name ?? 'dashboard'))
 const langOptions = [

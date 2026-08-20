@@ -6,6 +6,7 @@
         <n-button v-if="!isNew" :loading="testing" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
+        <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
         <n-button type="primary" :loading="saving" @click="onSave">
           {{ t('providers.save') }}
         </n-button>
@@ -56,7 +57,7 @@
         </n-form>
       </n-card>
 
-      <n-card :title="t('providers.keyPool')" size="small" class="keys-card">
+      <n-card v-if="!isNew" :title="t('providers.keyPool')" size="small" class="keys-card">
         <div v-for="k in keys" :key="k.index" class="key-row">
           <n-tag size="small" :bordered="false">{{ k.masked }}</n-tag>
           <n-tag v-if="k.status" size="small" :bordered="false" :type="keyStatus(k).type">
@@ -247,6 +248,10 @@ async function onTest() {
   } finally {
     testing.value = false
   }
+}
+
+function onCancel() {
+  router.push({ name: 'providers' })
 }
 
 async function onAddKey() {
