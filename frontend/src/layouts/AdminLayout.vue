@@ -86,6 +86,12 @@ async function onLogout() {
   background-size: cover;
   background-position: center;
 }
+.admin-layout :deep(.n-layout),
+.admin-layout :deep(.n-layout-header),
+.admin-layout :deep(.n-layout-content),
+.admin-layout :deep(.n-layout-scroll-container) {
+  background: transparent;
+}
 .logo { padding: 16px; font-weight: 700; font-size: 18px; }
 .admin-header { padding: 8px 16px; }
 .admin-content { padding: 16px; }
