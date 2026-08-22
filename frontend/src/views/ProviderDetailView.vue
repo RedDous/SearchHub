@@ -311,14 +311,20 @@ function reload() {
   loadKeys()
 }
 
-onMounted(() => {
-  typesStore.load()
+onMounted(async () => {
+  await typesStore.load()
   reload()
 })
 watch(() => props.id, reload)
 watch(() => keyId.value, loadKeys)
 watch(() => props.type, () => {
   if (isNew.value) Object.assign(form, emptyForm())
+})
+watch(() => entry.value, (e, prev) => {
+  if (isNew.value && !prev && e) {
+    Object.assign(form, emptyForm())
+    loadKeys()
+  }
 })
 </script>
 
