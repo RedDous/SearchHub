@@ -17,7 +17,7 @@
       <n-card size="small" class="form-card">
         <n-form label-placement="left" label-width="150">
           <n-form-item :label="t('providers.id')">
-            <n-input v-model:value="form.id" :disabled="!isNew" placeholder="exa / tavily / jina / searxng / ddg" />
+            <n-input v-model:value="form.id" :disabled="!isNew" placeholder="exa / tavily / ddg / searxng / jina / trafilatura" />
           </n-form-item>
           <n-form-item :label="t('providers.capabilities')">
             <n-checkbox-group v-model:value="form.capabilities">
@@ -44,7 +44,7 @@
           <n-form-item :label="t('providers.maxResults')">
             <n-input-number v-model:value="form.max_results" :min="1" :max="50" style="width: 160px" />
           </n-form-item>
-          <n-form-item v-if="!isNew || entry?.requiresBaseUrl" :label="t('providers.baseUrl')">
+          <n-form-item v-if="isNew ? !!entry?.requiresBaseUrl : (!!entry?.requiresBaseUrl || !!form.base_url)" :label="t('providers.baseUrl')">
             <n-input v-model:value="form.base_url" placeholder="http://searxng:8080" />
           </n-form-item>
           <n-form-item :label="t('providers.maxConcurrency')">

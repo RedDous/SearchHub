@@ -1,3 +1,4 @@
+// 与后端 src/searchhub/providers/__init__.py 的 PROVIDER_CLASSES 保持同步
 export interface ProviderCatalogEntry {
   type: string
   name: string
