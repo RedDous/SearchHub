@@ -16,6 +16,16 @@ export interface ProviderCfg {
   key_pool: KeyPoolCfg
   options: Record<string, unknown>
 }
+export interface ProviderType {
+  type: string
+  name: string
+  capabilities: string[]
+  requires_key: boolean
+  requires_base_url: boolean
+  key_pool_params: 'none' | 'rps' | 'full'
+  show_max_results: boolean
+  show_options: boolean
+}
 export interface TokenInfo {
   id: string
   name: string
@@ -52,6 +62,7 @@ export const adminApi = {
   changePassword: (old_password: string, new_password: string) =>
     request<null>('/api/admin/change-password', { method: 'POST', body: { old_password, new_password } }),
   getConfig: () => request<AppConfigView>('/api/admin/config'),
+  getProviderTypes: () => request<{ types: ProviderType[] }>('/api/admin/provider-types'),
   createProvider: (cfg: ProviderCfg) => request<null>('/api/admin/providers', { method: 'POST', body: cfg }),
   updateProvider: (id: string, cfg: ProviderCfg) =>
     request<null>(`/api/admin/providers/${id}`, { method: 'PUT', body: cfg }),

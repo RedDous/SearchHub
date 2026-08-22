@@ -11,8 +11,11 @@
     <n-data-table :columns="columns" :data="providers" :loading="loading" size="small" />
 
     <h2 class="section-title" ref="catalogTitleRef">{{ t('providers.catalogTitle') }}</h2>
+    <n-alert v-if="typesStore.error" type="error" :show-icon="false" class="catalog-error">
+      {{ typesStore.error }}
+    </n-alert>
     <n-grid :cols="3" responsive="screen" :x-gap="12" :y-gap="12">
-      <n-grid-item v-for="entry in PROVIDER_CATALOG" :key="entry.type">
+      <n-grid-item v-for="entry in typesStore.types" :key="entry.type">
         <n-card size="small" hoverable class="catalog-card" @click="onCatalogClick(entry)">
           <div class="catalog-name">
             {{ entry.name }}
@@ -20,7 +23,7 @@
               {{ t(isConfigured(entry.type) ? 'providers.configured' : 'providers.unconfigured') }}
             </n-tag>
           </div>
-          <div class="catalog-desc">{{ t(entry.descKey) }}</div>
+          <div class="catalog-desc">{{ t('providers.desc.' + entry.type) }}</div>
           <n-space :size="6">
             <n-tag v-for="c in entry.capabilities" :key="c" size="small" :bordered="false">
               {{ c }}
@@ -37,13 +40,14 @@ import { computed, h, onMounted, ref } from 'vue'
 import { useDialog, useMessage, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import { adminApi, type ProviderCfg } from '@/api/admin'
-import { PROVIDER_CATALOG, type ProviderCatalogEntry } from '@/api/providerCatalog'
+import { adminApi, type ProviderCfg, type ProviderType } from '@/api/admin'
+import { useProviderTypesStore } from '@/stores/providerTypes'
 import { t } from '@/i18n'
 
 const router = useRouter()
 const dialog = useDialog()
 const message = useMessage()
+const typesStore = useProviderTypesStore()
 const loading = ref(false)
 const providers = ref<ProviderCfg[]>([])
 const keyCounts = ref<Record<string, number>>({})
@@ -55,7 +59,7 @@ function isConfigured(type: string): boolean {
   return configuredIds.value.has(type)
 }
 
-function onCatalogClick(entry: ProviderCatalogEntry) {
+function onCatalogClick(entry: ProviderType) {
   const configured = configuredIds.value.has(entry.type)
   router.push(configured ? { name: 'provider-detail', params: { id: entry.type } } : { name: 'provider-new', params: { type: entry.type } })
 }
@@ -151,7 +155,10 @@ function onDelete(row: ProviderCfg) {
   })
 }
 
-onMounted(load)
+onMounted(() => {
+  typesStore.load()
+  load()
+})
 </script>
 
 <style scoped>
@@ -173,6 +180,9 @@ onMounted(load)
 }
 .catalog-card {
   cursor: pointer;
+}
+.catalog-error {
+  margin-bottom: 12px;
 }
 .catalog-name {
   display: flex;

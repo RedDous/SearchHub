@@ -38,28 +38,28 @@
           <n-form-item :label="t('providers.priority')">
             <n-input-number v-model:value="form.priority" :min="1" style="width: 160px" />
           </n-form-item>
-          <n-form-item :label="t('providers.maxResults')">
+          <n-form-item v-if="entry?.show_max_results ?? true" :label="t('providers.maxResults')">
             <n-input-number v-model:value="form.max_results" :min="1" :max="50" style="width: 160px" />
           </n-form-item>
-          <n-form-item v-if="isNew ? !!entry?.requiresBaseUrl : (!!entry?.requiresBaseUrl || !!form.base_url)" :label="t('providers.baseUrl')">
+          <n-form-item v-if="isNew ? !!entry?.requires_base_url : (!!entry?.requires_base_url || !!form.base_url)" :label="t('providers.baseUrl')">
             <n-input v-model:value="form.base_url" placeholder="http://searxng:8080" />
           </n-form-item>
-          <n-form-item :label="t('providers.maxConcurrency')">
+          <n-form-item v-if="showFullKeyPool" :label="t('providers.maxConcurrency')">
             <n-input-number v-model:value="form.key_pool.max_concurrency" :min="1" :precision="0" style="width: 160px" />
           </n-form-item>
-          <n-form-item :label="t('providers.rpsLimit')">
+          <n-form-item v-if="showFullKeyPool || showRpsOnly" :label="t('providers.rpsLimit')">
             <n-input-number v-model:value="form.key_pool.rps_limit" :min="0.1" :step="0.5" style="width: 160px" />
           </n-form-item>
-          <n-form-item :label="t('providers.cooldown')">
+          <n-form-item v-if="showFullKeyPool" :label="t('providers.cooldown')">
             <n-input-number v-model:value="form.key_pool.cooldown_s" :min="0" style="width: 160px" />
           </n-form-item>
-          <n-form-item :label="t('providers.options')">
+          <n-form-item v-if="entry?.show_options" :label="t('providers.options')">
             <n-input v-model:value="form.options" type="textarea" :rows="4" placeholder='{"top_k": 5}' />
           </n-form-item>
         </n-form>
       </n-card>
 
-      <n-card :title="t('providers.keyPool')" size="small" class="keys-card">
+      <n-card v-if="entry?.requires_key || (!entry && !isNew)" :title="t('providers.keyPool')" size="small" class="keys-card">
         <div v-for="k in keys" :key="k.index" class="key-row">
           <n-tag size="small" :bordered="false">{{ k.masked }}</n-tag>
           <n-tag v-if="k.status" size="small" :bordered="false" :type="keyStatus(k).type">
@@ -86,17 +86,20 @@ import { useDialog, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { adminApi, type KeyEntry, type ProviderCfg } from '@/api/admin'
 import { ApiError } from '@/api/client'
-import { catalogEntry } from '@/api/providerCatalog'
+import { useProviderTypesStore } from '@/stores/providerTypes'
 import { t } from '@/i18n'
 
 const props = defineProps<{ id: string; type?: string }>()
 const router = useRouter()
 const dialog = useDialog()
 const message = useMessage()
+const typesStore = useProviderTypesStore()
 
 const isNew = computed(() => props.id === 'new')
-const entry = computed(() => (isNew.value ? catalogEntry(props.type ?? '') : catalogEntry(form.id)))
+const entry = computed(() => (isNew.value ? typesStore.byType(props.type ?? '') : typesStore.byType(form.id)))
 const availableCaps = computed(() => entry.value?.capabilities ?? ['search', 'extract'])
+const showFullKeyPool = computed(() => entry.value?.key_pool_params === 'full' || (!entry.value && !isNew.value))
+const showRpsOnly = computed(() => entry.value?.key_pool_params === 'rps')
 // Key 池归属：新建模式用所选类型（secrets.env 的 {TYPE}_KEY_N 前缀），编辑模式用配置 id
 const keyId = computed(() => (isNew.value ? props.type ?? '' : props.id))
 const loading = ref(false)
@@ -119,7 +122,7 @@ interface FormModel {
 }
 
 function emptyForm(): FormModel {
-  const catalogType = isNew.value ? catalogEntry(props.type ?? '') : undefined
+  const catalogType = isNew.value ? typesStore.byType(props.type ?? '') : undefined
   return {
     id: catalogType ? catalogType.type : '',
     capabilities: catalogType ? [...catalogType.capabilities] : ['search', 'extract'],
@@ -204,7 +207,7 @@ async function onSave() {
     message.error(t('providers.capabilitiesRequired'))
     return
   }
-  if (isNew.value && entry.value?.requiresBaseUrl && !form.base_url.trim()) {
+  if (isNew.value && entry.value?.requires_base_url && !form.base_url.trim()) {
     message.error(t('providers.baseUrlRequired'))
     return
   }
