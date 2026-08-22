@@ -1,0 +1,7 @@
+name: web-searchhub
+version: 1.0.0
+description: "SearchHub self-hosted search/extract aggregator backend (thin REST passthrough)."
+author: SearchHub
+kind: backend
+provides_web_providers:
+  - searchhub
