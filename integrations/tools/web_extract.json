@@ -1,0 +1,16 @@
+{
+  "type": "function",
+  "function": {
+    "name": "web_extract",
+    "description": "Extract page content through the SearchHub aggregator. Returns JSON with {success, data: [{url, title, content, raw_content, metadata}], meta}.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "urls": {"type": "array", "items": {"type": "string"}, "description": "List of URLs to extract"},
+        "format": {"type": "string", "enum": ["markdown", "text"], "default": "markdown"},
+        "max_chars": {"type": "integer", "minimum": 100, "maximum": 1000000, "default": 15000}
+      },
+      "required": ["urls"]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "function",
+  "function": {
+    "name": "web_search",
+    "description": "Search the web through the SearchHub aggregator. Returns JSON with {success, data: {web: [{title, url, description, position}]}, meta}.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {"type": "string", "description": "Search query"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 50, "default": 5},
+        "providers": {"type": "string", "description": "Comma-separated provider ids to restrict to (exa,tavily,ddg,searxng,jina,trafilatura)"},
+        "strategy": {"type": "string", "enum": ["fanout", "rotation", "primary_fallback"]}
+      },
+      "required": ["query"]
+    }
+  }
+}
