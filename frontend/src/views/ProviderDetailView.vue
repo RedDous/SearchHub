@@ -349,9 +349,6 @@ watch(() => entry.value, (e, prev) => {
   color: #888;
   margin-bottom: 8px;
 }
-.key-hint {
-  margin-bottom: 12px;
-}
 .key-row {
   display: flex;
   align-items: center;
