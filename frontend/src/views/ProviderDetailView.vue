@@ -311,7 +311,10 @@ function reload() {
   loadKeys()
 }
 
-onMounted(reload)
+onMounted(() => {
+  typesStore.load()
+  reload()
+})
 watch(() => props.id, reload)
 watch(() => keyId.value, loadKeys)
 watch(() => props.type, () => {
