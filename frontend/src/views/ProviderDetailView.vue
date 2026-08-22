@@ -17,7 +17,7 @@
       <n-card size="small" class="form-card">
         <n-form label-placement="left" label-width="150">
           <n-form-item :label="t('providers.id')">
-            <n-input v-model:value="form.id" :disabled="!isNew" placeholder="exa / tavily / ddg / searxng / jina / trafilatura" />
+            <n-input v-model:value="form.id" :disabled="!isNew || !!entry" :placeholder="isNew && !entry ? 'exa / tavily / ddg / searxng / jina / trafilatura' : ''" />
           </n-form-item>
           <n-form-item :label="t('providers.capabilities')">
             <n-checkbox-group v-model:value="form.capabilities">
@@ -26,10 +26,7 @@
               </n-space>
             </n-checkbox-group>
           </n-form-item>
-          <n-alert v-if="isNew && entry?.requiresKey" type="info" :show-icon="false" class="key-hint">
-            {{ t('providers.addKeyHint') }}
-          </n-alert>
-          <n-alert v-else-if="isNew && props.type === 'jina'" type="info" :show-icon="false" class="key-hint">
+          <n-alert v-if="isNew && props.type === 'jina'" type="info" :show-icon="false" class="key-hint">
             {{ t('providers.keyOptionalHint') }}
           </n-alert>
           <n-form-item :label="t('providers.enabled')">
@@ -62,7 +59,7 @@
         </n-form>
       </n-card>
 
-      <n-card v-if="!isNew" :title="t('providers.keyPool')" size="small" class="keys-card">
+      <n-card :title="t('providers.keyPool')" size="small" class="keys-card">
         <div v-for="k in keys" :key="k.index" class="key-row">
           <n-tag size="small" :bordered="false">{{ k.masked }}</n-tag>
           <n-tag v-if="k.status" size="small" :bordered="false" :type="keyStatus(k).type">
@@ -72,7 +69,7 @@
             {{ t('providers.delete') }}
           </n-button>
         </div>
-        <div v-if="!isNew" class="key-add">
+        <div class="key-add">
           <n-input v-model:value="newKey" :placeholder="t('providers.addKey')" @keydown.enter="onAddKey" />
           <n-button type="primary" :loading="addingKey" @click="onAddKey">
             {{ t('providers.addKey') }}
@@ -100,6 +97,8 @@ const message = useMessage()
 const isNew = computed(() => props.id === 'new')
 const entry = computed(() => (isNew.value ? catalogEntry(props.type ?? '') : catalogEntry(form.id)))
 const availableCaps = computed(() => entry.value?.capabilities ?? ['search', 'extract'])
+// Key 池归属：新建模式用所选类型（secrets.env 的 {TYPE}_KEY_N 前缀），编辑模式用配置 id
+const keyId = computed(() => (isNew.value ? props.type ?? '' : props.id))
 const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
@@ -120,9 +119,10 @@ interface FormModel {
 }
 
 function emptyForm(): FormModel {
+  const catalogType = isNew.value ? catalogEntry(props.type ?? '') : undefined
   return {
-    id: '',
-    capabilities: catalogEntry(props.type ?? '')?.capabilities.slice() ?? ['search', 'extract'],
+    id: catalogType ? catalogType.type : '',
+    capabilities: catalogType ? [...catalogType.capabilities] : ['search', 'extract'],
     enabled: true,
     weight: 10,
     priority: 100,
@@ -163,13 +163,13 @@ async function load() {
 let keysReqSeq = 0
 
 async function loadKeys() {
-  if (props.id === 'new') {
+  if (!keyId.value) {
     keys.value = []
     return
   }
   const seq = ++keysReqSeq
   try {
-    const r = await adminApi.listKeys(props.id)
+    const r = await adminApi.listKeys(keyId.value)
     if (seq === keysReqSeq) keys.value = r.keys
   } catch (e) {
     if (seq === keysReqSeq) message.error(e instanceof Error ? e.message : t('common.failed'))
@@ -267,10 +267,10 @@ function onCancel() {
 }
 
 async function onAddKey() {
-  if (!newKey.value.trim() || addingKey.value) return
+  if (!newKey.value.trim() || addingKey.value || !keyId.value) return
   addingKey.value = true
   try {
-    await adminApi.addKey(props.id, newKey.value.trim())
+    await adminApi.addKey(keyId.value, newKey.value.trim())
     newKey.value = ''
     message.success(t('common.success'))
     await loadKeys()
@@ -289,7 +289,7 @@ function onDeleteKey(index: number) {
     negativeText: t('common.cancel'),
     onPositiveClick: async () => {
       try {
-        await adminApi.deleteKey(props.id, index)
+        await adminApi.deleteKey(keyId.value, index)
         message.success(t('common.success'))
         await loadKeys()
       } catch (e) {

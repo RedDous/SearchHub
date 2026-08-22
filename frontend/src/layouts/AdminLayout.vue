@@ -86,11 +86,51 @@ async function onLogout() {
   background-size: cover;
   background-position: center;
 }
+/* 磨玻璃：侧边栏 / 顶栏 / 内容卡片半透明 + 背景模糊，与壁纸协调 */
 .admin-layout :deep(.n-layout),
 .admin-layout :deep(.n-layout-header),
 .admin-layout :deep(.n-layout-content),
 .admin-layout :deep(.n-layout-scroll-container) {
   background: transparent;
+}
+.admin-layout :deep(.n-layout-sider) {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px) saturate(1.5);
+}
+.admin-layout :deep(.n-layout-header) {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(10px) saturate(1.5);
+}
+.dark .admin-layout :deep(.n-layout-sider) {
+  background: rgba(18, 22, 30, 0.6);
+}
+.dark .admin-layout :deep(.n-layout-header) {
+  background: rgba(18, 22, 30, 0.5);
+}
+/* 内容卡片与表格磨玻璃 */
+.admin-content :deep(.n-card) {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(12px) saturate(1.4);
+}
+.admin-content :deep(.n-data-table),
+.admin-content :deep(.n-data-table .n-data-table-base-table) {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(12px) saturate(1.4);
+}
+.dark .admin-content :deep(.n-card) {
+  background: rgba(18, 22, 30, 0.72);
+}
+.dark .admin-content :deep(.n-data-table),
+.dark .admin-content :deep(.n-data-table .n-data-table-base-table) {
+  background: rgba(18, 22, 30, 0.66);
+}
+/* 顶栏控件（语言选择等）半透明，明暗两态协调 */
+.admin-header :deep(.n-base-selection) {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(8px);
+}
+.dark .admin-header :deep(.n-base-selection) {
+  background: rgba(255, 255, 255, 0.08);
 }
 .logo { padding: 16px; font-weight: 700; font-size: 18px; }
 .admin-header { padding: 8px 16px; }

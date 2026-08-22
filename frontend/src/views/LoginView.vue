@@ -72,4 +72,11 @@ async function submit() {
 .login-card {
   width: 360px;
 }
+.login-wrap :deep(.login-card) {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px) saturate(1.5);
+}
+.dark .login-wrap :deep(.login-card) {
+  background: rgba(18, 22, 30, 0.72);
+}
 </style>
