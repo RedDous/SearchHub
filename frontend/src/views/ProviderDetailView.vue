@@ -300,13 +300,17 @@ function onDeleteKey(index: number) {
 }
 
 function reload() {
-  if (isNew.value) return
+  if (isNew.value) {
+    loadKeys()
+    return
+  }
   load()
   loadKeys()
 }
 
 onMounted(reload)
 watch(() => props.id, reload)
+watch(() => keyId.value, loadKeys)
 watch(() => props.type, () => {
   if (isNew.value) Object.assign(form, emptyForm())
 })
