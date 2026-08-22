@@ -4,6 +4,7 @@ import re
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
+from searchhub.providers.schema import ProviderSchema
 
 _TITLE_RE = re.compile(r"^#+\s*(.+?)\s*$", re.M)
 
@@ -13,6 +14,8 @@ class JinaProvider(Provider):
     capabilities = frozenset({"extract"})
     REQUIRES_KEY = False
     BASE = "https://r.jina.ai/"
+    schema = ProviderSchema(type="jina", name="Jina Reader", capabilities=("extract",),
+                            key_pool_params="full")
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
         raise NotImplementedError

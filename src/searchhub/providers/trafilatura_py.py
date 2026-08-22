@@ -6,6 +6,7 @@ import re
 from searchhub.engine.rate_limit import TokenBucket
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
+from searchhub.providers.schema import ProviderSchema
 
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 
@@ -14,6 +15,8 @@ class TrafilaturaProvider(Provider):
     id = "trafilatura"
     capabilities = frozenset({"extract"})
     REQUIRES_KEY = False
+    schema = ProviderSchema(type="trafilatura", name="Trafilatura", capabilities=("extract",),
+                            key_pool_params="rps")
 
     def __init__(self, cfg, keys, http):
         super().__init__(cfg, keys, http)

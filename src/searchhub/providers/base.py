@@ -9,6 +9,7 @@ import httpx
 from searchhub.config import ProviderConfig
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.keypool import KeyPool
+from searchhub.providers.schema import ProviderSchema
 
 
 class ProviderError(Exception):
@@ -22,6 +23,7 @@ class ProviderError(Exception):
 class Provider(ABC):
     id: str = ""
     capabilities: frozenset[str] = frozenset()
+    schema: ProviderSchema = ProviderSchema(type="", name="")
 
     def __init__(self, cfg: ProviderConfig, keys: list[str], http: httpx.AsyncClient):
         self.cfg = cfg

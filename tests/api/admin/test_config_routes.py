@@ -123,3 +123,37 @@ def test_settings_update_preserves_out_of_band_provider(admin_client, data_dir):
     cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
     assert {p["id"] for p in cfg["providers"]} == {"exa", "exa2"}
     assert cfg["cache"]["enabled"] is True
+
+
+def test_provider_types_endpoint(admin_client):
+    r = admin_client.get("/api/admin/provider-types")
+    assert r.status_code == 200
+    types = {t["type"]: t for t in r.json()["data"]["types"]}
+    assert set(types) == {"exa", "tavily", "ddg", "searxng", "jina", "trafilatura"}
+    assert types["exa"]["requires_key"] is True
+    assert types["exa"]["key_pool_params"] == "full"
+    assert types["ddg"]["requires_key"] is False
+    assert types["searxng"]["requires_base_url"] is True
+
+
+def test_create_searxng_without_base_url_rejected(admin_client):
+    r = admin_client.post("/api/admin/providers",
+                          json={"id": "searxng", "capabilities": ["search"]})
+    assert r.status_code == 400
+    assert "base_url" in r.json()["error"]
+
+
+def test_create_searxng_with_extract_rejected(admin_client):
+    r = admin_client.post("/api/admin/providers",
+                          json={"id": "searxng", "capabilities": ["search", "extract"],
+                                "base_url": "http://searxng:8080"})
+    assert r.status_code == 400
+    assert "extract" in r.json()["error"]
+
+
+def test_create_ddg_with_base_url_allowed(admin_client):
+    # 宽松路径：非必填字段不拒绝（ddg 无 base_url 需求但提交了也不报错）
+    r = admin_client.post("/api/admin/providers",
+                          json={"id": "ddg", "capabilities": ["search"],
+                                "base_url": "http://example.com"})
+    assert r.status_code == 200

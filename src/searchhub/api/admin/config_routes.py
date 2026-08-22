@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import asdict
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -10,6 +11,7 @@ from pydantic import BaseModel
 from searchhub.api.admin.session import require_admin
 from searchhub.config import CacheConfig, HistoryConfig, ProviderConfig, StrategyConfig
 from searchhub.providers import PROVIDER_CLASSES
+from searchhub.providers.schema import validate_provider_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"],
                    dependencies=[Depends(require_admin)])
@@ -43,12 +45,23 @@ def _save(svc, cfg) -> None:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+@router.get("/provider-types")
+async def provider_types():
+    types = [asdict(PROVIDER_CLASSES[pid].schema)
+             for pid in sorted(PROVIDER_CLASSES)]
+    return {"success": True, "data": {"types": types}}
+
+
 @router.post("/providers")
 async def create_provider(body: ProviderConfig, request: Request):
     svc = request.app.state.engine.config
     svc.maybe_reload()
     if svc.get().provider(body.id) is not None:
         raise HTTPException(status_code=409, detail=f"provider {body.id} already exists")
+    schema = PROVIDER_CLASSES[body.id].schema if body.id in PROVIDER_CLASSES else None
+    errors = validate_provider_config(body.id, body.capabilities, body.base_url, schema)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
     cfg = svc.get()
     cfg.providers.append(body)
     _save(svc, cfg)
@@ -65,6 +78,10 @@ async def update_provider(provider_id: str, body: ProviderConfig, request: Reque
         raise HTTPException(status_code=404, detail=f"provider {provider_id} not found")
     if body.id != provider_id:
         raise HTTPException(status_code=400, detail="provider id in body must match path")
+    schema = PROVIDER_CLASSES[body.id].schema if body.id in PROVIDER_CLASSES else None
+    errors = validate_provider_config(body.id, body.capabilities, body.base_url, schema)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
     cfg.providers[idx] = body
     _save(svc, cfg)
     return {"success": True}

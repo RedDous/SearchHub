@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
+from searchhub.providers.schema import ProviderSchema
 
 
 class TavilyProvider(Provider):
     id = "tavily"
     capabilities = frozenset({"search", "extract"})
     REQUIRES_KEY = True
+    schema = ProviderSchema(type="tavily", name="Tavily", capabilities=("search", "extract"),
+                            requires_key=True, key_pool_params="full", show_max_results=True)
     SEARCH_URL = "https://api.tavily.com/search"
     EXTRACT_URL = "https://api.tavily.com/extract"
 

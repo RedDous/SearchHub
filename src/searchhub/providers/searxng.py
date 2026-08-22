@@ -3,12 +3,15 @@ from __future__ import annotations
 from searchhub.engine.rate_limit import TokenBucket
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
+from searchhub.providers.schema import ProviderSchema
 
 
 class SearxngProvider(Provider):
     id = "searxng"
     capabilities = frozenset({"search"})
     REQUIRES_KEY = False
+    schema = ProviderSchema(type="searxng", name="SearXNG", capabilities=("search",),
+                            requires_base_url=True, key_pool_params="rps", show_max_results=True)
 
     def __init__(self, cfg, keys, http):
         super().__init__(cfg, keys, http)

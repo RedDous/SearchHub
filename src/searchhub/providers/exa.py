@@ -4,12 +4,15 @@ from typing import Any
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
+from searchhub.providers.schema import ProviderSchema
 
 
 class ExaProvider(Provider):
     id = "exa"
     capabilities = frozenset({"search", "extract"})
     REQUIRES_KEY = True
+    schema = ProviderSchema(type="exa", name="Exa", capabilities=("search", "extract"),
+                            requires_key=True, key_pool_params="full", show_max_results=True)
     SEARCH_URL = "https://api.exa.ai/search"
     CONTENTS_URL = "https://api.exa.ai/contents"
 
