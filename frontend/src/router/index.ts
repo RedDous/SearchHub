@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const routes = [
@@ -10,6 +11,7 @@ const routes = [
       { path: '', redirect: '/dashboard' },
       { path: 'dashboard', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
       { path: 'providers', name: 'providers', component: () => import('@/views/ProvidersView.vue') },
+      { path: 'providers/new/:type', name: 'provider-new', component: () => import('@/views/ProviderDetailView.vue'), props: (route: RouteLocationNormalized) => ({ id: 'new', type: String(route.params.type) }) },
       { path: 'providers/:id', name: 'provider-detail', component: () => import('@/views/ProviderDetailView.vue'), props: true },
       { path: 'settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
       { path: 'tokens', name: 'tokens', component: () => import('@/views/TokensView.vue') },

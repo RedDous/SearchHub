@@ -2,12 +2,33 @@
   <div>
     <div class="providers-head">
       <h1 class="page-title">{{ t('providers.title') }}</h1>
-      <n-button type="primary" @click="router.push('/providers/new')">
+      <n-button type="primary" @click="scrollToCatalog">
         {{ t('providers.new') }}
       </n-button>
     </div>
 
+    <h2 class="section-title">{{ t('providers.configuredTitle') }}</h2>
     <n-data-table :columns="columns" :data="providers" :loading="loading" size="small" />
+
+    <h2 class="section-title" ref="catalogTitleRef">{{ t('providers.catalogTitle') }}</h2>
+    <n-grid :cols="3" responsive="screen" :x-gap="12" :y-gap="12">
+      <n-grid-item v-for="entry in PROVIDER_CATALOG" :key="entry.type">
+        <n-card size="small" hoverable class="catalog-card" @click="onCatalogClick(entry)">
+          <div class="catalog-name">
+            {{ entry.name }}
+            <n-tag size="small" :type="isConfigured(entry.type) ? 'success' : 'default'">
+              {{ t(isConfigured(entry.type) ? 'providers.configured' : 'providers.unconfigured') }}
+            </n-tag>
+          </div>
+          <div class="catalog-desc">{{ t(entry.descKey) }}</div>
+          <n-space :size="6">
+            <n-tag v-for="c in entry.capabilities" :key="c" size="small" :bordered="false">
+              {{ c }}
+            </n-tag>
+          </n-space>
+        </n-card>
+      </n-grid-item>
+    </n-grid>
   </div>
 </template>
 
@@ -17,6 +38,7 @@ import { useDialog, useMessage, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { adminApi, type ProviderCfg } from '@/api/admin'
+import { PROVIDER_CATALOG, type ProviderCatalogEntry } from '@/api/providerCatalog'
 import { t } from '@/i18n'
 
 const router = useRouter()
@@ -25,6 +47,22 @@ const message = useMessage()
 const loading = ref(false)
 const providers = ref<ProviderCfg[]>([])
 const keyCounts = ref<Record<string, number>>({})
+const catalogTitleRef = ref<HTMLElement | null>(null)
+
+const configuredIds = computed(() => new Set(providers.value.map((p) => p.id)))
+
+function isConfigured(type: string): boolean {
+  return configuredIds.value.has(type)
+}
+
+function onCatalogClick(entry: ProviderCatalogEntry) {
+  const configured = configuredIds.value.has(entry.type)
+  router.push(configured ? { name: 'provider-detail', params: { id: entry.type } } : { name: 'provider-new', params: { type: entry.type } })
+}
+
+function scrollToCatalog() {
+  catalogTitleRef.value?.scrollIntoView({ behavior: 'smooth' })
+}
 
 const columns = computed<DataTableColumns<ProviderCfg>>(() => [
   { title: t('providers.id'), key: 'id' },
@@ -127,5 +165,26 @@ onMounted(load)
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+}
+.section-title {
+  margin: 20px 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.catalog-card {
+  cursor: pointer;
+}
+.catalog-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.catalog-desc {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 8px;
 }
 </style>
