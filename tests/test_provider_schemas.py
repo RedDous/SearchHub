@@ -21,6 +21,9 @@ def test_schema_flags():
     assert PROVIDER_CLASSES["searxng"].schema.key_pool_params == "rps"
     assert PROVIDER_CLASSES["jina"].schema.key_pool_params == "full"
     assert PROVIDER_CLASSES["trafilatura"].schema.key_pool_params == "rps"
+    assert PROVIDER_CLASSES["jina"].schema.optional_key is True
+    assert PROVIDER_CLASSES["exa"].schema.optional_key is False
+    assert PROVIDER_CLASSES["ddg"].schema.optional_key is False
     for pid, cls in PROVIDER_CLASSES.items():
         assert cls.schema.show_options is False
         assert cls.schema.show_max_results == ("search" in cls.capabilities)

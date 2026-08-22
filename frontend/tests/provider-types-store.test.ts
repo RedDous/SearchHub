@@ -5,7 +5,7 @@ import { normalizeProviderTypes, useProviderTypesStore } from '@/stores/provider
 describe('normalizeProviderTypes', () => {
   it('filters malformed entries', () => {
     const raw = [
-      { type: 'exa', name: 'Exa', capabilities: ['search', 'extract'], key_pool_params: 'full' },
+      { type: 'exa', name: 'Exa', capabilities: ['search', 'extract'], key_pool_params: 'full', optional_key: false },
       { type: 'bad', name: '', capabilities: ['crawl'], key_pool_params: 'weird' },
       null,
       'nope',
@@ -23,7 +23,7 @@ describe('provider types store', () => {
     const store = useProviderTypesStore()
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ success: true, data: { types: [
-        { type: 'ddg', name: 'DuckDuckGo', capabilities: ['search'], key_pool_params: 'none' },
+        { type: 'ddg', name: 'DuckDuckGo', capabilities: ['search'], key_pool_params: 'none', optional_key: false },
       ] } }), { status: 200 }),
     )
     await store.load()

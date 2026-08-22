@@ -15,7 +15,7 @@ class JinaProvider(Provider):
     REQUIRES_KEY = False
     BASE = "https://r.jina.ai/"
     schema = ProviderSchema(type="jina", name="Jina Reader", capabilities=("extract",),
-                            key_pool_params="full")
+                            optional_key=True, key_pool_params="full")
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
         raise NotImplementedError

@@ -10,7 +10,8 @@ export function normalizeProviderTypes(raw: unknown): ProviderType[] {
       typeof x.name === 'string' &&
       Array.isArray(x.capabilities) &&
       x.capabilities.every((c) => c === 'search' || c === 'extract') &&
-      ['none', 'rps', 'full'].includes(String(x.key_pool_params))
+      ['none', 'rps', 'full'].includes(String(x.key_pool_params)) &&
+      typeof x.optional_key === 'boolean'
   })
 }
 

@@ -21,6 +21,7 @@ export interface ProviderType {
   name: string
   capabilities: string[]
   requires_key: boolean
+  optional_key: boolean
   requires_base_url: boolean
   key_pool_params: 'none' | 'rps' | 'full'
   show_max_results: boolean

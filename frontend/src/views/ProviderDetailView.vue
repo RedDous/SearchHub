@@ -26,9 +26,6 @@
               </n-space>
             </n-checkbox-group>
           </n-form-item>
-          <n-alert v-if="isNew && props.type === 'jina'" type="info" :show-icon="false" class="key-hint">
-            {{ t('providers.keyOptionalHint') }}
-          </n-alert>
           <n-form-item :label="t('providers.enabled')">
             <n-switch v-model:value="form.enabled" />
           </n-form-item>
@@ -59,7 +56,8 @@
         </n-form>
       </n-card>
 
-      <n-card v-if="entry?.requires_key || (!entry && !isNew)" :title="t('providers.keyPool')" size="small" class="keys-card">
+      <n-card v-if="entry?.requires_key || entry?.optional_key || (!entry && !isNew)" :title="t('providers.keyPool')" size="small" class="keys-card">
+        <div v-if="entry?.optional_key" class="key-hint-text">{{ t('providers.keyOptionalHint') }}</div>
         <div v-for="k in keys" :key="k.index" class="key-row">
           <n-tag size="small" :bordered="false">{{ k.masked }}</n-tag>
           <n-tag v-if="k.status" size="small" :bordered="false" :type="keyStatus(k).type">
@@ -345,6 +343,11 @@ watch(() => entry.value, (e, prev) => {
 }
 .keys-card {
   margin-bottom: 12px;
+}
+.key-hint-text {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 8px;
 }
 .key-hint {
   margin-bottom: 12px;

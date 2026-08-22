@@ -11,6 +11,7 @@ class ProviderSchema:
     name: str
     capabilities: tuple[str, ...] = ()
     requires_key: bool = False
+    optional_key: bool = False
     requires_base_url: bool = False
     key_pool_params: KeyPoolParams = "none"
     show_max_results: bool = False
