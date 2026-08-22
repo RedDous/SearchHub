@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="detail-head">
-      <h1 class="page-title">{{ isNew ? t('providers.new') : form.id }}</h1>
+      <h1 class="page-title">{{ isNew ? (entry?.name ?? t('providers.new')) : form.id }}</h1>
       <n-space>
         <n-button v-if="!isNew" :loading="testing" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
@@ -22,11 +22,16 @@
           <n-form-item :label="t('providers.capabilities')">
             <n-checkbox-group v-model:value="form.capabilities">
               <n-space :size="12">
-                <n-checkbox value="search" label="search" />
-                <n-checkbox value="extract" label="extract" />
+                <n-checkbox v-for="cap in availableCaps" :key="cap" :value="cap" :label="cap" />
               </n-space>
             </n-checkbox-group>
           </n-form-item>
+          <n-alert v-if="isNew && entry?.requiresKey" type="info" :show-icon="false" class="key-hint">
+            {{ t('providers.addKeyHint') }}
+          </n-alert>
+          <n-alert v-else-if="isNew && props.type === 'jina'" type="info" :show-icon="false" class="key-hint">
+            {{ t('providers.keyOptionalHint') }}
+          </n-alert>
           <n-form-item :label="t('providers.enabled')">
             <n-switch v-model:value="form.enabled" />
           </n-form-item>
@@ -39,8 +44,8 @@
           <n-form-item :label="t('providers.maxResults')">
             <n-input-number v-model:value="form.max_results" :min="1" :max="50" style="width: 160px" />
           </n-form-item>
-          <n-form-item :label="t('providers.baseUrl')">
-            <n-input v-model:value="form.base_url" placeholder="https://" />
+          <n-form-item v-if="!isNew || entry?.requiresBaseUrl" :label="t('providers.baseUrl')">
+            <n-input v-model:value="form.base_url" placeholder="http://searxng:8080" />
           </n-form-item>
           <n-form-item :label="t('providers.maxConcurrency')">
             <n-input-number v-model:value="form.key_pool.max_concurrency" :min="1" :precision="0" style="width: 160px" />
@@ -84,14 +89,17 @@ import { useDialog, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { adminApi, type KeyEntry, type ProviderCfg } from '@/api/admin'
 import { ApiError } from '@/api/client'
+import { catalogEntry } from '@/api/providerCatalog'
 import { t } from '@/i18n'
 
-const props = defineProps<{ id: string }>()
+const props = defineProps<{ id: string; type?: string }>()
 const router = useRouter()
 const dialog = useDialog()
 const message = useMessage()
 
 const isNew = computed(() => props.id === 'new')
+const entry = computed(() => (isNew.value ? catalogEntry(props.type ?? '') : catalogEntry(form.id)))
+const availableCaps = computed(() => entry.value?.capabilities ?? ['search', 'extract'])
 const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
@@ -114,7 +122,7 @@ interface FormModel {
 function emptyForm(): FormModel {
   return {
     id: '',
-    capabilities: ['search', 'extract'],
+    capabilities: catalogEntry(props.type ?? '')?.capabilities.slice() ?? ['search', 'extract'],
     enabled: true,
     weight: 10,
     priority: 100,
@@ -194,6 +202,10 @@ async function onSave() {
   }
   if (form.capabilities.length === 0) {
     message.error(t('providers.capabilitiesRequired'))
+    return
+  }
+  if (isNew.value && entry.value?.requiresBaseUrl && !form.base_url.trim()) {
+    message.error(t('providers.baseUrlRequired'))
     return
   }
   let options: Record<string, unknown>
@@ -295,6 +307,9 @@ function reload() {
 
 onMounted(reload)
 watch(() => props.id, reload)
+watch(() => props.type, () => {
+  if (isNew.value) Object.assign(form, emptyForm())
+})
 </script>
 
 <style scoped>
@@ -313,6 +328,9 @@ watch(() => props.id, reload)
   margin-bottom: 12px;
 }
 .keys-card {
+  margin-bottom: 12px;
+}
+.key-hint {
   margin-bottom: 12px;
 }
 .key-row {
