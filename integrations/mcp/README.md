@@ -16,7 +16,7 @@ MCP（Model Context Protocol）接入，让 AI Agent（opencode / claude / curso
 
 ## opencode
 
-远程（推荐，指向 NAS 上的服务）——写入项目根目录 `opencode.json`（或全局 `~/.config/opencode/opencode.json`）：
+远程（http，内网部署）——写入项目根目录 `opencode.json`（或全局 `~/.config/opencode/opencode.json`）：
 
 ```json
 {
@@ -107,3 +107,29 @@ env = { SEARCHHUB_DATA = "/path/to/searchhub/data" }
 }
 ```
 
+
+## 引导 Agent 主动使用（可选）
+
+配置好 MCP 后，在对应 agent 的**说明文件**中加入一段指引，可以让 agent 在需要最新信息时主动调用工具（而不是只依赖内置知识）。各 agent 的说明文件：
+
+| Agent | 文件 |
+|---|---|
+| opencode / Codex | `AGENTS.md`（项目根或全局） |
+| Claude Code | `CLAUDE.md` |
+| Cursor | `.cursor/rules/*.mdc` |
+| Gemini CLI | `GEMINI.md` |
+
+可粘贴的通用片段：
+
+```markdown
+## Web 搜索与提取
+
+需要最新信息、实时数据或网页内容时，使用 MCP 工具（经 SearchHub 聚合，无需直接访问网页）：
+
+- `web_search(query, limit?)`：网页搜索，返回 `{success, data: {web: [{title, url, description}]}}` 形状的 JSON
+- `web_extract(urls, format?)`：网页内容提取，返回 JSON 数组（每项含 url/title/content）
+
+优先使用这两个工具而非模型内置知识；搜索前不确定时先用 `web_search` 验证或补充信息。
+```
+
+各 agent 会按自身约定读取对应文件并遵循其中对工具的使用指引。
