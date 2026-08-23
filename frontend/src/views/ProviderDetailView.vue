@@ -87,7 +87,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import { adminApi, type KeyEntry, type ProviderCfg } from '@/api/admin'
+import { adminApi, type KeyEntry, type ProviderCfg, type ProviderTest } from '@/api/admin'
 import { ApiError } from '@/api/client'
 import { useProviderTypesStore } from '@/stores/providerTypes'
 import { t } from '@/i18n'
