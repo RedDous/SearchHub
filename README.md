@@ -36,7 +36,10 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 **可选 sidecar**（自建 SearXNG 聚合搜索与 crawl4ai 网页提取副车，按需启用）：
 
 ```bash
+# 方式 A（拉取镜像）
 docker compose --profile sidecars up -d
+# 方式 B（源码构建）
+docker compose -f docker-compose.yml -f docker-compose.build.yml --profile sidecars up -d
 ```
 
 然后在管理后台添加供应商：searxng → base_url `http://searxng:8080`；crawl4ai → base_url `http://crawl4ai:11235`。

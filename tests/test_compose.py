@@ -19,7 +19,9 @@ def test_searchhub_service_shape(compose: dict):
     assert "build" not in svc
     assert svc["ports"] == ["8000:8000"]
     assert svc["volumes"] == ["./data:/data"]
+    assert svc["restart"] == "unless-stopped"
     assert svc["environment"]["SEARCHHUB_DATA"] == "/data"
+    assert svc["environment"]["ADMIN_PASSWORD"] == "${ADMIN_PASSWORD:-admin}"
     assert ":?" not in svc["environment"]["ADMIN_PASSWORD"]
 
 
