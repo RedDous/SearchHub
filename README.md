@@ -1,128 +1,123 @@
 # SearchHub
 
-自托管统一 Web 搜索 / 网页提取聚合服务（M1：核心引擎 + REST API）。
+自托管统一 Web 搜索 / 网页提取聚合服务。一个服务聚合多家搜索与提取供应商（exa / tavily / ddg / searxng / jina / trafilatura ...），统一管理 API Key 与多 Key 轮换，为你的 AI Agent 提供稳定可靠的搜索与网页提取能力。
 
-## 快速开始
+- **多供应商聚合**：并发 / 轮换 / 主备三种调度策略，失败自动剔除、按质量权重合并排序
+- **多 Key 管理**：每个云供应商支持多个 Key 自动轮换、限速与故障冷却
+- **网页提取**：统一提取接口（markdown / 纯文本），本地或云端供应商可选
+- **全量 UI 管理**：供应商、Key、策略、缓存、调用方 Token、历史与统计全部在管理后台完成，无需编辑配置文件；支持中英文与明暗主题
+- **Agent 接入**：REST API、MCP、hermes 插件、dsh 插件、Agent Skill、工具安装包
+- **一键部署**：Docker Compose，NAS 友好，零环境依赖（无需安装 Python / npm）
 
-```bash
-python -m venv .venv && .venv/bin/pip install -e ".[dev]"
-SEARCHHUB_DATA=./data .venv/bin/python -m searchhub
-```
+## 快速部署（Docker）
 
-首次启动自动生成 `data/config.yaml` 与 `data/secrets.env`。
-
-## Docker 部署（M4）
-
-适合 NAS 等家用自托管场景的一键部署。
-
-**前提**：已安装 Docker 与 Docker Compose v2。
-
-**步骤：**
+适合 NAS 等自托管场景。前提：已安装 Docker 与 Docker Compose v2。
 
 ```bash
-# 1. 克隆仓库
 git clone https://github.com/RedDous/SearchHub.git && cd SearchHub
-
-# 2. （可选）如需自定义首次密码，复制环境变量文件并取消注释 ADMIN_PASSWORD 行
-# cp .env.example .env
-# 首次启动的默认账号为 admin / admin；不设置 ADMIN_PASSWORD 即可零配置启动
-# .env 中若密码含 $，请用 $$ 转义，否则 compose 会做变量插值
-
-# 3. 构建并启动（首次构建含前端编译，约几分钟）
-docker compose up -d --build
-
-# 4. 打开 http://<NAS-IP>:8000，首次登录使用默认账号 admin / admin（或 .env 中设置的 ADMIN_PASSWORD），登录后系统会强制要求修改密码
+docker compose up -d --build        # 首次构建含前端编译，约几分钟
 ```
 
-**可选 sidecar**（搜索引擎聚合与网页提取副车，按需启用）：
+打开 `http://<NAS-IP>:8000`：
+
+1. 首次登录默认账号 `admin / admin`（若在 `.env` 设置了 `ADMIN_PASSWORD` 则为该值），登录后系统会强制要求修改密码
+2. 在管理后台按目录添加供应商（点选类型 → 专属表单）并启用
+3. 在「调用方 Token」页创建 Token，供 REST / MCP / Agent 接入使用
+
+**可选 sidecar**（自建 SearXNG 聚合搜索与 crawl4ai 网页提取副车，按需启用）：
 
 ```bash
 docker compose --profile sidecars up -d
 ```
 
-然后在管理后台添加供应商：searxng（base_url `http://searxng:8080`）与 crawl4ai（base_url `http://crawl4ai:11235`）。
+然后在管理后台添加供应商：searxng → base_url `http://searxng:8080`；crawl4ai → base_url `http://crawl4ai:11235`。
 
 **数据与备份**：全部数据位于 `./data/`（config.yaml、secrets.env、history.db、cache.db、session_secret）。备份 = 拷贝整个目录；恢复 = 拷贝回去后重启服务。
 
-**更新**：
-
-```bash
-git pull && docker compose up -d --build
-```
+**更新**：`git pull && docker compose up -d --build`
 
 **说明**：
 
-- 镜像内以 root 运行（NAS 家用场景简化；如需非 root 可在 compose 中加 `user:`）
-- 前端已内置（`SEARCHHUB_WEB_DIST` 指向镜像内路径），无需在 NAS 上单独构建
-- 本机无 docker 时的替代冒烟：`.venv/bin/python -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"`（结构测试已覆盖 compose 与服务名）
+- `.env` 完全可选——不创建也能零配置启动（首次密码即默认 admin）；如密码含 `$` 请用 `$$` 转义
+- 前端已内置镜像，无需在 NAS 上单独构建
+- 镜像内以 root 运行（家用场景简化；如需非 root 可在 compose 加 `user:`）
 
-## 配置示例
+## 本地开发
 
-`data/secrets.env`（密钥，权限 600）：
-```
-EXA_KEY_1=xxx
-TAVILY_KEY_1=yyy
-```
-
-`data/config.yaml` 添加供应商：
-```yaml
-providers:
-  - id: exa
-    capabilities: [search, extract]
-    enabled: true
-    weight: 10
-  - id: ddg
-    capabilities: [search]
-    enabled: true
-  - id: trafilatura
-    capabilities: [extract]
-    enabled: true
+```bash
+python -m venv .venv && .venv/bin/pip install -e ".[dev]"
+SEARCHHUB_DATA=./data .venv/bin/python -m searchhub    # 后端，端口 8000
 ```
 
-## API
+管理后台前端（`frontend/`，Vue3 SPA）：
 
-所有 `/v1/*` 接口需 `Authorization: Bearer <token>`；token 以 sha256 哈希加入 config.yaml：
-
-```yaml
-auth:
-  tokens:
-    - name: my-agent
-      token_hash: <sha256(token)>
+```bash
+cd frontend && npm install
+npm run dev         # Vite dev server（5173），代理 /api /v1 /healthz 到 8000
+npm run build       # 产物 frontend/dist 由后端自动托管
 ```
 
-- `GET /v1/search?q=...&limit=5` 或 `POST /v1/search {"q": ...}`
-- `GET /v1/extract?urls=a,b` 或 `POST /v1/extract {"urls": [...]}`
-- `GET /v1/providers`
-- `GET /healthz` / `GET /readyz`
+测试：后端 `.venv/bin/pytest`；前端 `cd frontend && npm test`。
 
-生成 token 哈希：`python -c "import hashlib; print(hashlib.sha256(b'YOUR_TOKEN').hexdigest())"`
+## 使用
 
-## 管理后台（M2）
+### 管理后台
 
-管理 API 位于 `/api/admin/*`（与公开 API 分离，使用独立管理员会话）：
+浏览器打开 `http://<host>:8000` 登录后：
 
-- 登录：`POST /api/admin/login`（`{"username", "password"}`），会话存 httpOnly Cookie
-- 首次启动：若 `config.yaml` 无密码哈希，使用环境变量 `ADMIN_PASSWORD`；未设置则默认 `admin/admin`（启动日志有警告，请尽快在 UI 改密）
-- 功能：供应商 CRUD 与连接测试、Key 池增删（掩码显示）、策略/缓存/历史设置、调用方 Token 创建/吊销、历史查询、统计（summary + 每小时时序）、配置版本查看
-- 所有写操作原子写入 `data/config.yaml`/`data/secrets.env` 并热重载，自动滚动备份 5 份
-- 历史记录存 `data/history.db`，默认保留 30 天，后台每小时自动清理；`history.redact_queries: true` 可对 query 落盘前 sha1
+| 页面 | 功能 |
+|---|---|
+| 仪表盘 | 24h 请求量、成功率、缓存命中率、趋势图、供应商状态 |
+| 供应商 | **目录式配置**：点选供应商类型进入其专属表单（能力、base_url、限速参数按类型显示），连接测试、Key 池增删（掩码显示、多 Key 自动轮换） |
+| 策略与缓存 | 默认调度模式（fanout 并发 / rotation 轮换 / primary_fallback 主备）、超时、缓存 TTL、历史保留期与查询脱敏 |
+| 调用方 Token | 创建 / 吊销 Bearer Token（明文仅创建时显示一次） |
+| 历史查询 | 全部搜索 / 提取请求记录，按能力 / 供应商 / Token / 时间筛选，展开查看详情 |
+| 系统设置 | 修改密码、语言（中文 / English）、明暗主题、自定义壁纸 |
 
-## MCP Server（M3）
+所有配置写操作原子写入 `data/config.yaml` / `data/secrets.env` 并热重载（自动滚动备份 5 份），日常使用无需手工编辑文件。
 
-MCP（Model Context Protocol）接入，让 AI 客户端（opencode / claude / cursor 等）直接调用搜索与提取能力。提供两个工具，返回单一 JSON 字符串（成功时形状与 REST `/v1` 的 data 部分一致，不含 `success` 标志——客户端按形状或错误字段探测）：
+### 配置文件（参考）
 
-- `web_search(query, limit=5, providers?, strategy?)`：网页搜索
-- `web_extract(urls, format="markdown", max_chars=15000)`：网页内容提取
+- `config.yaml`：供应商、策略、缓存、历史、管理员与调用方 Token（`auth.tokens[].token_hash` 为 sha256 哈希）
+- `secrets.env`：供应商 API Key，格式 `{ID}_KEY_N`（如 `EXA_KEY_1=xxx`），权限 600
 
-支持两种传输：
+## 对外接口
 
-**stdio（本地 CLI，无需启动 HTTP 服务）**
+### REST API
+
+所有 `/v1/*` 需请求头 `Authorization: Bearer <token>`（Token 在管理后台创建）：
+
+| 端点 | 说明 |
+|---|---|
+| `GET/POST /v1/search?q=...&limit=` | 聚合搜索 |
+| `GET/POST /v1/extract?urls=...` | 网页提取（单 / 多 URL） |
+| `GET /v1/providers` | 当前启用的供应商与能力 |
+| `GET /healthz` / `GET /readyz` | 健康检查 |
+
+响应为统一信封 `{"success": true, "data": ..., "meta": ...}`；失败为 `{"success": false, "error": "..."}`。`/v1/search` 的 `data.web[]` 包含 `title / url / description / position`。
+
+### MCP
+
+两个工具：`web_search(query, limit?, providers?, strategy?)`、`web_extract(urls, format?, max_chars?)`，返回单一 JSON 字符串（形状与 REST 的 data 部分一致）。
+
+**streamable-http**（随主服务挂载于 `/mcp`，需 Token）：
+
+```json
+{
+  "mcpServers": {
+    "searchhub": {
+      "url": "http://<host>:8000/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
+```
+
+**stdio**（本机直接运行，无需 Token）：
 
 ```bash
 SEARCHHUB_DATA=./data .venv/bin/python -m searchhub.mcp
 ```
-
-MCP 客户端配置示例（stdio）：
 
 ```json
 {
@@ -130,64 +125,28 @@ MCP 客户端配置示例（stdio）：
     "searchhub": {
       "command": "python",
       "args": ["-m", "searchhub.mcp"],
-      "env": {
-        "SEARCHHUB_DATA": "/path/to/searchhub/data"
-      }
+      "env": { "SEARCHHUB_DATA": "/path/to/searchhub/data" }
     }
   }
 }
 ```
 
-**streamable-http（经主服务挂载于 `/mcp`）**
+## Agent 接入（integrations/）
 
-随主服务一起启动，无需额外进程。MCP 客户端配置示例：
+| 接入方式 | 位置 | 适用 |
+|---|---|---|
+| hermes 插件 | `integrations/hermes/` | hermes-agent 原生后端，顶替内置 `web_search` / `web_extract` |
+| dsh 插件 | `integrations/dsh/` | DeepSeek Harness `ctx.web` seam（search + fetch 双能力） |
+| Agent Skill | `integrations/skill/` | opencode / Claude Code / Codex 等技能目录 |
+| 工具安装包 | `integrations/tools/` | 自定义 harness 的 function-calling 定义，及 Claude Code / Codex / Cursor / OpenCode / Gemini CLI 安装片段 |
 
-```json
-{
-  "mcpServers": {
-    "searchhub": {
-      "url": "http://127.0.0.1:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer <token>"
-      }
-    }
-  }
-}
+各目录内 README 含安装与配置步骤（Token 均在管理后台「调用方 Token」页创建）。
+
+## 目录结构
+
 ```
-
-### 鉴权
-
-与 REST `/v1` 同一套调用方 Token：token 在管理后台「调用方 Token」页创建（或 `POST /api/admin/tokens`）。streamable-http 通过 `Authorization: Bearer <token>` 请求头携带；stdio 模式在本地直接调用，无需 token。请求头缺失或 token 无效返回 `401`。
-
-### 验证
-
-```bash
-# stdio 冒烟：正常时会持续等待标准输入，3 秒后被 timeout 终止（exit=124）
-timeout 3 .venv/bin/python -m searchhub.mcp; echo "exit=$?"
+src/            # 后端（FastAPI：聚合引擎、供应商适配器、管理 API、MCP）
+frontend/       # 管理后台（Vue3 SPA）
+integrations/   # Agent 接入件（hermes 插件 / dsh 插件 / skill / tools）
+data/           # 运行时数据（config.yaml、secrets.env、*.db，部署时挂载卷）
 ```
-
-随后在任意 MCP 客户端（opencode / claude / cursor）中按上面的配置连接，调用 `web_search` / `web_extract` 即可。
-
-## 测试
-
-```bash
-.venv/bin/pytest
-```
-
-## 前端（M2B）
-
-管理后台为 Vue3 SPA，位于 `frontend/`。
-
-开发：启动后端（`python -m searchhub`，端口 8000），然后
-```bash
-cd frontend && npm install && npm run dev
-```
-Vite dev server（默认 5173）代理 `/api`、`/v1`、`/healthz` 到 `127.0.0.1:8000`，同源 Cookie 会话直接可用。
-
-构建：
-```bash
-cd frontend && npm run build
-```
-产物 `frontend/dist` 由后端自动托管（`SEARCHHUB_WEB_DIST` 可覆盖路径；目录不存在则不挂载，仅 API）。SPA fallback 仅作用于非 API 路径。
-
-测试：`cd frontend && npm test`（vitest 单测）；后端回归 `pytest`。
