@@ -24,10 +24,13 @@ def test_workflow_builds_multiarh_and_pushes_ghcr():
     build = next(s for s in steps if "build-push-action" in s["uses"])
     assert build["with"]["platforms"] == "linux/amd64,linux/arm64"
     assert build["with"]["push"] is True
-    assert "ghcr.io" in build["with"]["tags"]
-    assert "sha-" in build["with"]["tags"]   # 仅 main 分支表达式含 sha-<12>
-    assert ":latest" in build["with"]["tags"]
-    assert build["with"]["tags"] == build["with"]["tags"].lower()  # Docker 仓库名必须小写
+    tags = build["with"]["tags"]
+    assert "steps.sha.outputs.image" in tags
+    assert "sha-" in tags   # 仅 main 分支表达式含 sha-<12>
+    assert ":latest" in tags
+    script = next(s for s in steps if "github-script" in s["uses"])["with"]["script"]
+    assert "ghcr.io" in script
+    assert "toLowerCase()" in script  # Docker 仓库名必须小写
 
 
 def test_workflow_compose_image_consistency():
