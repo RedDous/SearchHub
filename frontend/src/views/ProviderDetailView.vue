@@ -265,7 +265,8 @@ async function onTest() {
       : await adminApi.testProvider(props.id)
     message.success(t('providers.testOk') + `: ${r.capability} × ${r.count} (${r.took_ms}ms)`)
   } catch (e) {
-    message.error(t('providers.testFail') + ': ' + (e instanceof Error ? e.message : String(e)))
+    const detail = e instanceof Error ? e.message : String(e)
+    message.error(t('providers.testFail') + ': ' + detail + (isNew.value ? t('providers.testDraftHint') : ''))
   } finally {
     testing.value = false
   }

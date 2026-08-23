@@ -139,6 +139,7 @@ async def test_provider(provider_id: str, request: Request):
 async def test_provider_draft(body: ProviderConfig, request: Request):
     """用表单中未保存的配置测试（新建模式）。供应商需为已知类型。"""
     svc = request.app.state.engine.config
+    svc.maybe_reload()
     cls = PROVIDER_CLASSES.get(body.id)
     if cls is None:
         raise HTTPException(status_code=404,
