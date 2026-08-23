@@ -3,7 +3,7 @@
     <div class="detail-head">
       <h1 class="page-title">{{ isNew ? (entry?.name ?? t('providers.new')) : form.id }}</h1>
       <n-space>
-        <n-button v-if="!isNew" :loading="testing" @click="onTest">
+        <n-button v-if="!isNew || !!entry" :loading="testing" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
         <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
@@ -177,6 +177,24 @@ async function loadKeys() {
   }
 }
 
+function buildPayload(options: Record<string, unknown> = parseOptions(form.options)): ProviderCfg {
+  return {
+    id: form.id.trim(),
+    capabilities: [...form.capabilities],
+    enabled: form.enabled,
+    weight: form.weight,
+    priority: form.priority,
+    max_results: form.max_results,
+    base_url: form.base_url.trim() || null,
+    key_pool: {
+      max_concurrency: form.key_pool.max_concurrency,
+      rps_limit: form.key_pool.rps_limit,
+      cooldown_s: form.key_pool.cooldown_s,
+    },
+    options,
+  }
+}
+
 function parseOptions(raw: string): Record<string, unknown> {
   if (!raw.trim()) return {}
   try {
@@ -218,21 +236,7 @@ async function onSave() {
   }
   saving.value = true
   try {
-    const cfg: ProviderCfg = {
-      id: form.id.trim(),
-      capabilities: [...form.capabilities],
-      enabled: form.enabled,
-      weight: form.weight,
-      priority: form.priority,
-      max_results: form.max_results,
-      base_url: form.base_url.trim() || null,
-      key_pool: {
-        max_concurrency: form.key_pool.max_concurrency,
-        rps_limit: form.key_pool.rps_limit,
-        cooldown_s: form.key_pool.cooldown_s,
-      },
-      options,
-    }
+    const cfg = buildPayload(options)
     if (isNew.value) {
       await adminApi.createProvider(cfg)
       message.success(t('common.success'))
@@ -253,9 +257,12 @@ async function onSave() {
 }
 
 async function onTest() {
+  if (testing.value) return
   testing.value = true
   try {
-    const r = await adminApi.testProvider(props.id)
+    const r = isNew.value
+      ? await adminApi.testProviderConfig(buildPayload())
+      : await adminApi.testProvider(props.id)
     message.success(t('providers.testOk') + `: ${r.capability} × ${r.count} (${r.took_ms}ms)`)
   } catch (e) {
     message.error(t('providers.testFail') + ': ' + (e instanceof Error ? e.message : String(e)))

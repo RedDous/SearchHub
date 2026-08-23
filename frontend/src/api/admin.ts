@@ -72,6 +72,8 @@ export const adminApi = {
   deleteProvider: (id: string) => request<null>(`/api/admin/providers/${id}`, { method: 'DELETE' }),
   testProvider: (id: string) =>
     request<{ capability: string; count: number; took_ms: number }>(`/api/admin/providers/${id}/test`, { method: 'POST' }),
+  testProviderConfig: (cfg: ProviderCfg) =>
+    request<{ capability: string; count: number; took_ms: number }>('/api/admin/providers/test', { method: 'POST', body: cfg }),
   listKeys: (id: string) => request<{ keys: KeyEntry[] }>(`/api/admin/providers/${id}/keys`),
   addKey: (id: string, key: string) => request<null>(`/api/admin/providers/${id}/keys`, { method: 'POST', body: { key } }),
   deleteKey: (id: string, index: number) => request<null>(`/api/admin/providers/${id}/keys/${index}`, { method: 'DELETE' }),

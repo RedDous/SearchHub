@@ -171,3 +171,50 @@ def test_config_commit_defaults_to_dev(admin_client, monkeypatch):
     monkeypatch.delenv("SEARCHHUB_COMMIT", raising=False)
     data = admin_client.get("/api/admin/config").json()["data"]
     assert data["commit"] == "dev"
+
+
+def test_test_draft_known_type(admin_client):
+    from searchhub.models import SearchItem
+    from searchhub.providers.ddg import DdgProvider
+
+    original = DdgProvider.search
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider="ddg")]
+
+    DdgProvider.search = fake_search
+    try:
+        r = admin_client.post("/api/admin/providers/test",
+                              json={"id": "ddg", "capabilities": ["search"],
+                                    "enabled": True, "weight": 10, "priority": 100,
+                                    "max_results": 8, "base_url": None,
+                                    "key_pool": {"max_concurrency": 2, "rps_limit": 10,
+                                                 "cooldown_s": 60}, "options": {}})
+    finally:
+        DdgProvider.search = original
+    assert r.status_code == 200
+    body = r.json()
+    assert body["success"] is True
+    assert body["data"]["capability"] == "search"
+
+
+def test_test_draft_unknown_type_rejected(admin_client):
+    r = admin_client.post("/api/admin/providers/test",
+                          json={"id": "nope", "capabilities": ["search"],
+                                "enabled": True, "weight": 10, "priority": 100,
+                                "max_results": 8, "base_url": None,
+                                "key_pool": {"max_concurrency": 2, "rps_limit": 10,
+                                             "cooldown_s": 60}, "options": {}})
+    assert r.status_code == 404
+
+
+def test_test_draft_schema_validation(admin_client):
+    # searxng 缺 base_url → 400（复用 schema 校验）
+    r = admin_client.post("/api/admin/providers/test",
+                          json={"id": "searxng", "capabilities": ["search"],
+                                "enabled": True, "weight": 10, "priority": 100,
+                                "max_results": 8, "base_url": None,
+                                "key_pool": {"max_concurrency": 2, "rps_limit": 10,
+                                             "cooldown_s": 60}, "options": {}})
+    assert r.status_code == 400
+    assert "base_url" in r.json()["error"]

@@ -104,6 +104,21 @@ async def delete_provider(provider_id: str, request: Request):
     return {"success": True}
 
 
+async def _probe(provider, cap: str) -> dict:
+    try:
+        start = time.monotonic()
+        if cap == "search":
+            items = await asyncio.wait_for(provider.search("searchhub connection test", 1), 10)
+        else:
+            items = await asyncio.wait_for(
+                provider.extract(["https://example.com"], max_chars=200), 10)
+        return {"success": True, "data": {"capability": cap, "count": len(items),
+                                          "took_ms": round(
+                                              (time.monotonic() - start) * 1000, 1)}}
+    except Exception as e:
+        return {"success": False, "error": f"{type(e).__name__}: {e}"}
+
+
 @router.post("/providers/{provider_id}/test")
 async def test_provider(provider_id: str, request: Request):
     svc = request.app.state.engine.config
@@ -117,18 +132,26 @@ async def test_provider(provider_id: str, request: Request):
     async with httpx.AsyncClient(timeout=10) as http:
         provider = cls(pc, keys, http)
         cap = "search" if "search" in pc.capabilities else "extract"
-        try:
-            start = time.monotonic()
-            if cap == "search":
-                items = await asyncio.wait_for(provider.search("searchhub connection test", 1), 10)
-            else:
-                items = await asyncio.wait_for(
-                    provider.extract(["https://example.com"], max_chars=200), 10)
-            return {"success": True, "data": {"capability": cap, "count": len(items),
-                                              "took_ms": round(
-                                                  (time.monotonic() - start) * 1000, 1)}}
-        except Exception as e:
-            return {"success": False, "error": f"{type(e).__name__}: {e}"}
+        return await _probe(provider, cap)
+
+
+@router.post("/providers/test")
+async def test_provider_draft(body: ProviderConfig, request: Request):
+    """用表单中未保存的配置测试（新建模式）。供应商需为已知类型。"""
+    svc = request.app.state.engine.config
+    cls = PROVIDER_CLASSES.get(body.id)
+    if cls is None:
+        raise HTTPException(status_code=404,
+                            detail=f"provider {body.id} not found or unsupported")
+    schema = cls.schema
+    errors = validate_provider_config(body.id, body.capabilities, body.base_url, schema)
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    keys = svc.provider_keys(body.id)
+    async with httpx.AsyncClient(timeout=10) as http:
+        provider = cls(body, keys, http)
+        cap = "search" if "search" in body.capabilities else "extract"
+        return await _probe(provider, cap)
 
 
 @router.put("/settings")
