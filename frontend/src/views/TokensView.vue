@@ -138,22 +138,26 @@ async function onCopy() {
     }
   }
   if (!ok) {
-    const ta = document.createElement('textarea')
-    ta.value = token
-    ta.style.position = 'fixed'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.focus()
-    ta.select()
-    try {
-      ok = document.execCommand('copy')
-    } finally {
-      document.body.removeChild(ta)
+    // 兜底：选中弹窗里可见的只读输入框（部分浏览器拒绝从隐藏元素复制），失败时保持选中便于手动复制
+    const input = document.querySelector<HTMLInputElement>('.token-result input')
+    if (input) {
+      input.focus()
+      input.select()
+      try {
+        ok = document.execCommand('copy')
+      } catch {
+        ok = false
+      }
     }
   }
   if (ok) {
     message.success(t('tokens.copied'))
   } else {
+    const input = document.querySelector<HTMLInputElement>('.token-result input')
+    if (input) {
+      input.focus()
+      input.select()
+    }
     message.error(t('tokens.copyFailed'))
   }
 }
