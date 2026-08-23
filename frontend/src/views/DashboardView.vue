@@ -75,7 +75,7 @@ interface ChartRow {
 const message = useMessage()
 const loading = ref(false)
 const version = ref('-')
-const commit = ref('dev')
+const commit = ref('-')
 const summary = ref<StatsSummary | null>(null)
 const chartRows = ref<ChartRow[]>([])
 

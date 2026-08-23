@@ -160,9 +160,10 @@ def test_create_ddg_with_base_url_allowed(admin_client):
 
 
 def test_config_reports_version_and_commit(admin_client, monkeypatch):
+    from searchhub import __version__
     monkeypatch.setenv("SEARCHHUB_COMMIT", "abc1234")
     data = admin_client.get("/api/admin/config").json()["data"]
-    assert data["version"] == "0.1.0"
+    assert data["version"] == __version__
     assert data["commit"] == "abc1234"
 
 

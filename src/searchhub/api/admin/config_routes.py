@@ -33,12 +33,13 @@ async def get_config(request: Request):
     data["admin"]["password_hash"] = ""
     for t in data["auth"]["tokens"]:
         t["token_hash"] = t["token_hash"][:8] + "****"
+    info = build_info()
     return {"success": True, "data": {"config": data,
                                       "config_version": svc.config_version,
                                       "updated_at": svc.updated_at,
                                       "password_is_default": svc.verify_admin_password("admin"),
-                                      "version": build_info()["version"],
-                                      "commit": build_info()["commit"]}}
+                                      "version": info["version"],
+                                      "commit": info["commit"]}}
 
 
 def _save(svc, cfg) -> None:
