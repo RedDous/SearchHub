@@ -38,7 +38,7 @@ docker compose --profile sidecars up -d
 
 **说明**：
 
-- `.env` 完全可选——不创建也能零配置启动（首次密码即默认 admin）；如密码含 `$` 请用 `$$` 转义
+- `.env` 完全可选（可复制 `.env.example` 作为模板）——不创建也能零配置启动（首次密码即默认 admin）；如密码含 `$` 请用 `$$` 转义
 - 前端已内置镜像，无需在 NAS 上单独构建
 - 镜像内以 root 运行（家用场景简化；如需非 root 可在 compose 加 `user:`）
 
@@ -48,6 +48,8 @@ docker compose --profile sidecars up -d
 python -m venv .venv && .venv/bin/pip install -e ".[dev]"
 SEARCHHUB_DATA=./data .venv/bin/python -m searchhub    # 后端，端口 8000
 ```
+
+首次启动自动生成 `data/config.yaml` 与 `data/secrets.env`。
 
 管理后台前端（`frontend/`，Vue3 SPA）：
 
@@ -67,18 +69,18 @@ npm run build       # 产物 frontend/dist 由后端自动托管
 
 | 页面 | 功能 |
 |---|---|
-| 仪表盘 | 24h 请求量、成功率、缓存命中率、趋势图、供应商状态 |
+| 仪表盘 | 24h 请求量、成功率、缓存命中率、趋势图、供应商状态、配置版本查看 |
 | 供应商 | **目录式配置**：点选供应商类型进入其专属表单（能力、base_url、限速参数按类型显示），连接测试、Key 池增删（掩码显示、多 Key 自动轮换） |
 | 策略与缓存 | 默认调度模式（fanout 并发 / rotation 轮换 / primary_fallback 主备）、超时、缓存 TTL、历史保留期与查询脱敏 |
 | 调用方 Token | 创建 / 吊销 Bearer Token（明文仅创建时显示一次） |
-| 历史查询 | 全部搜索 / 提取请求记录，按能力 / 供应商 / Token / 时间筛选，展开查看详情 |
+| 历史查询 | 全部搜索 / 提取请求记录，按能力 / 供应商 / Token / 时间筛选，展开查看详情（默认保留 30 天、每小时自动清理；`history.redact_queries: true` 可对查询落盘前 sha1） |
 | 系统设置 | 修改密码、语言（中文 / English）、明暗主题、自定义壁纸 |
 
 所有配置写操作原子写入 `data/config.yaml` / `data/secrets.env` 并热重载（自动滚动备份 5 份），日常使用无需手工编辑文件。
 
 ### 配置文件（参考）
 
-- `config.yaml`：供应商、策略、缓存、历史、管理员与调用方 Token（`auth.tokens[].token_hash` 为 sha256 哈希）
+- `config.yaml`：供应商、策略、缓存、历史、管理员与调用方 Token（`auth.tokens[].token_hash` 为 sha256 哈希）；生成哈希：`python -c "import hashlib; print(hashlib.sha256(b'YOUR_TOKEN').hexdigest())"`
 - `secrets.env`：供应商 API Key，格式 `{ID}_KEY_N`（如 `EXA_KEY_1=xxx`），权限 600
 
 ## 对外接口
@@ -94,11 +96,13 @@ npm run build       # 产物 frontend/dist 由后端自动托管
 | `GET /v1/providers` | 当前启用的供应商与能力 |
 | `GET /healthz` / `GET /readyz` | 健康检查 |
 
+POST 请求体：`/v1/search` → `{"q": "...", "limit": 5}`；`/v1/extract` → `{"urls": ["..."], "format": "markdown", "max_chars": 15000}`。
+
 响应为统一信封 `{"success": true, "data": ..., "meta": ...}`；失败为 `{"success": false, "error": "..."}`。`/v1/search` 的 `data.web[]` 包含 `title / url / description / position`。
 
 ### MCP
 
-两个工具：`web_search(query, limit?, providers?, strategy?)`、`web_extract(urls, format?, max_chars?)`，返回单一 JSON 字符串（形状与 REST 的 data 部分一致）。
+两个工具：`web_search(query, limit?, providers?, strategy?)`、`web_extract(urls, format?, max_chars?)`，返回单一 JSON 字符串（形状与 REST 的 data 部分一致）。成功时不含 `success` 标志，客户端按形状或错误字段探测。
 
 **streamable-http**（随主服务挂载于 `/mcp`，需 Token）：
 
@@ -131,6 +135,15 @@ SEARCHHUB_DATA=./data .venv/bin/python -m searchhub.mcp
 }
 ```
 
+冒烟验证（本机可直接执行）：
+
+```bash
+# 冒烟：正常会持续等待标准输入，3 秒后被 timeout 终止（exit=124）
+timeout 3 .venv/bin/python -m searchhub.mcp; echo "exit=$?"
+```
+
+随后在任意 MCP 客户端（opencode / claude / cursor）按上述配置连接，调用 web_search / web_extract 即可。
+
 ## Agent 接入（integrations/）
 
 | 接入方式 | 位置 | 适用 |
@@ -145,8 +158,10 @@ SEARCHHUB_DATA=./data .venv/bin/python -m searchhub.mcp
 ## 目录结构
 
 ```
-src/            # 后端（FastAPI：聚合引擎、供应商适配器、管理 API、MCP）
-frontend/       # 管理后台（Vue3 SPA）
-integrations/   # Agent 接入件（hermes 插件 / dsh 插件 / skill / tools）
-data/           # 运行时数据（config.yaml、secrets.env、*.db，部署时挂载卷）
+docker-compose.yml  # 部署编排（含可选 sidecar 配置）
+.env.example        # 可选环境变量模板
+src/                # 后端（FastAPI：聚合引擎、供应商适配器、管理 API、MCP）
+frontend/           # 管理后台（Vue3 SPA）
+integrations/       # Agent 接入件（hermes 插件 / dsh 插件 / skill / tools）
+data/               # 运行时数据（config.yaml、secrets.env、*.db，部署时挂载卷）
 ```
