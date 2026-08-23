@@ -69,8 +69,8 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 | 方式 | 说明 | 入口 |
 |---|---|---|
 | REST API | `/v1/search` / `/v1/extract` 等，Bearer Token 鉴权 | 管理后台「调用方 Token」页创建 |
-| MCP | streamable-http（`/mcp`）与 stdio 两种传输，工具 `web_search` / `web_extract` | 按各 MCP 客户端配置 |
-| hermes 插件 | hermes-agent 原生后端，顶替内置 web_search / web_extract | `integrations/hermes/` |
-| dsh 插件 | DeepSeek Harness web seam（search + fetch） | `integrations/dsh/` |
-| Agent Skill | opencode / Claude Code / Codex 等技能目录 | `integrations/skill/` |
-| 工具安装包 | 自定义 harness 的 function-calling 定义及主流 agent 安装片段 | `integrations/tools/` |
+| MCP | streamable-http（`/mcp`）与 stdio 两种传输，工具 `web_search` / `web_extract` | [MCP 配置示例](integrations/skill/searchhub-web/SKILL.md) |
+| hermes 插件 | hermes-agent 原生后端，顶替内置 web_search / web_extract | [integrations/hermes/](integrations/hermes/) |
+| dsh 插件 | DeepSeek Harness web seam（search + fetch） | [integrations/dsh/](integrations/dsh/) |
+| Agent Skill | opencode / Claude Code / Codex 等技能目录 | [integrations/skill/](integrations/skill/) |
+| 工具安装包 | 自定义 harness 的 function-calling 定义及主流 agent 安装片段 | [integrations/tools/](integrations/tools/) |
