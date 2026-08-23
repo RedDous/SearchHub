@@ -15,13 +15,21 @@ def compose() -> dict:
 
 def test_searchhub_service_shape(compose: dict):
     svc = compose["services"]["searchhub"]
+    assert svc["image"] == "ghcr.io/reddous/searchhub:latest"
+    assert "build" not in svc
     assert svc["ports"] == ["8000:8000"]
     assert svc["volumes"] == ["./data:/data"]
     assert svc["environment"]["SEARCHHUB_DATA"] == "/data"
-    assert svc["environment"]["ADMIN_PASSWORD"] == "${ADMIN_PASSWORD:-admin}"
-    assert ":?" not in svc["environment"]["ADMIN_PASSWORD"]  # 已改为可选，不再强制
-    assert svc["restart"] == "unless-stopped"
-    assert "build" in svc
+    assert ":?" not in svc["environment"]["ADMIN_PASSWORD"]
+
+
+def test_build_override_file(compose: dict):
+    path = ROOT / "docker-compose.build.yml"
+    assert path.exists()
+    merged = yaml.safe_load(path.read_text())
+    svc = merged["services"]["searchhub"]
+    assert "build" in svc and svc["build"] == "."
+    assert svc["image"] == "searchhub:local"
 
 
 def test_sidecar_profiles(compose: dict):

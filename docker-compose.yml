@@ -1,7 +1,6 @@
 services:
   searchhub:
-    build: .
-    image: searchhub:latest
+    image: ghcr.io/reddous/searchhub:latest
     container_name: searchhub
     ports:
       - "8000:8000"

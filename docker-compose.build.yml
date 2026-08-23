@@ -1,0 +1,6 @@
+# 源码构建模式覆盖：与 docker-compose.yml 合并使用
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+services:
+  searchhub:
+    build: .
+    image: searchhub:local

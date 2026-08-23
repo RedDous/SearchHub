@@ -10,12 +10,23 @@
 
 ## 快速部署（Docker）
 
-适合 NAS 等自托管场景。前提：已安装 Docker 与 Docker Compose v2。
+适合 NAS 等自托管场景。前提：已安装 Docker 与 Docker Compose v2。两种方式任选：
+
+**方式 A：拉取镜像（推荐）**——无需源码，镜像已发布到 GHCR：
+
+```bash
+git clone https://github.com/RedDous/SearchHub.git && cd SearchHub   # 仅需要 compose 文件与 .env 模板
+docker compose up -d
+```
+
+**方式 B：源码构建**——本地构建镜像（首次含前端编译，约几分钟）：
 
 ```bash
 git clone https://github.com/RedDous/SearchHub.git && cd SearchHub
-docker compose up -d --build        # 首次构建含前端编译，约几分钟
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
+
+> 说明：镜像尚未发布到 GHCR 时（首个 release 前），只能走方式 B。方式 A 的更新 = `docker compose pull && docker compose up -d`；方式 B 的更新 = `git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`。其余（登录/引导配置/sidecar/备份）两种方式一致。
 
 打开 `http://<NAS-IP>:8000`：
 
@@ -32,10 +43,8 @@ docker compose --profile sidecars up -d
 
 **数据与备份**：全部数据位于 `./data/`（config.yaml、secrets.env、history.db、cache.db、session_secret）。备份 = 拷贝整个目录；恢复 = 拷贝回去后重启服务。
 
-**更新**：`git pull && docker compose up -d --build`
-
 **说明**：
 
 - `.env` 完全可选——不创建也能零配置启动（首次密码即默认 admin）；如密码含 `$` 请用 `$$` 转义（可复制 `.env.example` 作为模板）
-- 前端已内置镜像，无需在 NAS 上单独构建
+- 前端已内置镜像，无需单独构建（方式 A 直接拉取；方式 B 的 `--build` 已包含前端编译）
 - 镜像内以 root 运行（家用场景简化；如需非 root 可在 compose 加 `user:`）
