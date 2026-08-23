@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ES2022",
+    "outDir": "lib",
+    "declaration": true,
+    "declarationDir": "lib/types",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src", "tests"]
+}

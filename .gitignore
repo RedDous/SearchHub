@@ -13,3 +13,7 @@ __pycache__/
 
 # 本地运行数据
 data/
+
+# dsh 插件集成
+integrations/dsh/**/node_modules/
+integrations/dsh/**/lib/
