@@ -122,7 +122,7 @@ env = { SEARCHHUB_DATA = "/path/to/searchhub/data" }
 可粘贴的通用片段（采用 AGENTS.md 的约定格式：`<!-- 名称 -->` 注释块包裹，便于工具自动管理/替换该段；各 agent 按自身约定读取对应文件并遵循指引）：
 
 ```markdown
-<!-- searchhub -->
+<!-- SEARCHHUB_START -->
 Use the `searchhub` MCP to search the web and extract page content when the user asks about current events, general knowledge, specific URLs, or anything not covered by other tools (e.g. context7 for library docs). It returns aggregated results from multiple providers with a unified shape.
 
 Use AFTER context7: context7 is preferred for library/framework documentation. Use `searchhub` when context7 doesn't cover the topic or the user needs real-time/online information.
@@ -137,5 +137,6 @@ Use AFTER context7: context7 is preferred for library/framework documentation. U
 1. For open-ended questions, start with `web_search` to find relevant pages
 2. If a specific URL is provided or a result looks promising, use `web_extract` to get the full content
 3. Synthesize the information into a concise answer, citing the returned urls
+<!-- SEARCHHUB_END -->
 ```
 
