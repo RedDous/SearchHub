@@ -218,3 +218,29 @@ def test_test_draft_schema_validation(admin_client):
                                              "cooldown_s": 60}, "options": {}})
     assert r.status_code == 400
     assert "base_url" in r.json()["error"]
+
+
+def test_provider_tests_recorded_after_draft_test(admin_client):
+    from searchhub.models import SearchItem
+    from searchhub.providers.ddg import DdgProvider
+
+    original = DdgProvider.search
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider="ddg")]
+
+    DdgProvider.search = fake_search
+    try:
+        admin_client.post("/api/admin/providers/test",
+                          json={"id": "ddg", "capabilities": ["search"],
+                                "enabled": True, "weight": 10, "priority": 100,
+                                "max_results": 8, "base_url": None,
+                                "key_pool": {"max_concurrency": 2, "rps_limit": 10,
+                                             "cooldown_s": 60}, "options": {}})
+    finally:
+        DdgProvider.search = original
+    data = admin_client.get("/api/admin/config").json()["data"]
+    test = data["provider_tests"]["ddg"]
+    assert test["success"] is True
+    assert test["capability"] == "search"
+    assert test["count"] == 1

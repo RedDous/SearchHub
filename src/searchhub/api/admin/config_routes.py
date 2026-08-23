@@ -39,7 +39,8 @@ async def get_config(request: Request):
                                       "updated_at": svc.updated_at,
                                       "password_is_default": svc.verify_admin_password("admin"),
                                       "version": info["version"],
-                                      "commit": info["commit"]}}
+                                      "commit": info["commit"],
+                                      "provider_tests": request.app.state.engine.provider_tests}}
 
 
 def _save(svc, cfg) -> None:
@@ -119,6 +120,19 @@ async def _probe(provider, cap: str) -> dict:
         return {"success": False, "error": f"{type(e).__name__}: {e}"}
 
 
+def _record_test(request, provider_id: str, result: dict) -> dict:
+    engine = request.app.state.engine
+    entry: dict = {"success": bool(result.get("success")), "at": time.time()}
+    data = result.get("data")
+    if data:
+        entry.update({"capability": data.get("capability"), "count": data.get("count"),
+                      "took_ms": data.get("took_ms")})
+    if result.get("error"):
+        entry["error"] = result["error"]
+    engine.provider_tests[provider_id] = entry
+    return result
+
+
 @router.post("/providers/{provider_id}/test")
 async def test_provider(provider_id: str, request: Request):
     svc = request.app.state.engine.config
@@ -132,7 +146,7 @@ async def test_provider(provider_id: str, request: Request):
     async with httpx.AsyncClient(timeout=10) as http:
         provider = cls(pc, keys, http)
         cap = "search" if "search" in pc.capabilities else "extract"
-        return await _probe(provider, cap)
+        return _record_test(request, provider_id, await _probe(provider, cap))
 
 
 @router.post("/providers/test")
@@ -152,7 +166,7 @@ async def test_provider_draft(body: ProviderConfig, request: Request):
     async with httpx.AsyncClient(timeout=10) as http:
         provider = cls(body, keys, http)
         cap = "search" if "search" in body.capabilities else "extract"
-        return await _probe(provider, cap)
+        return _record_test(request, body.id, await _probe(provider, cap))
 
 
 @router.put("/settings")

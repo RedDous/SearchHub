@@ -34,6 +34,15 @@ export interface TokenInfo {
   revoked: boolean
   hash_prefix: string
 }
+export interface ProviderTest {
+  success: boolean
+  capability: string
+  count: number
+  took_ms: number
+  error?: string
+  at: number
+}
+
 export interface AppConfigView {
   config: {
     strategy: { default_mode: string; timeout_s: number }
@@ -48,6 +57,7 @@ export interface AppConfigView {
   password_is_default: boolean
   version: string
   commit: string
+  provider_tests: Record<string, ProviderTest>
 }
 export interface KeyEntry { index: number; masked: string; status: { key: string; cooling_until: number; in_flight: number; ok: boolean } | null }
 export interface HistoryRow { id: number; ts: number; capability: string; query: string; params: string; providers: string; cache_hit: number; took_ms: number; result_count: number; success: number; error: string; token_name: string; response_preview: string }

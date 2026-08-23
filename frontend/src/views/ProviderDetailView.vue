@@ -7,6 +7,10 @@
                   :title="isNew && !entry ? t('providers.testUnsupported') : undefined" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
+        <n-tag v-if="lastTest" size="small" :type="lastTest.success ? 'success' : 'error'"
+               :title="lastTest.error ?? lastTestDetail">
+          {{ lastTest.success ? t('providers.testOkShort') : t('providers.testFailShort') }}
+        </n-tag>
         <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
         <n-button type="primary" :loading="saving" @click="onSave">
           {{ t('providers.save') }}
@@ -104,6 +108,7 @@ const keyId = computed(() => (isNew.value ? props.type ?? '' : props.id))
 const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
+const lastTest = ref<ProviderTest | null>(null)
 const addingKey = ref(false)
 const keys = ref<KeyEntry[]>([])
 const newKey = ref('')
@@ -264,14 +269,21 @@ async function onTest() {
     const r = isNew.value
       ? await adminApi.testProviderConfig(buildPayload())
       : await adminApi.testProvider(props.id)
+    lastTest.value = { ...r, success: true, at: Date.now() / 1000 }
     message.success(t('providers.testOk') + `: ${r.capability} × ${r.count} (${r.took_ms}ms)`)
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e)
+    lastTest.value = { success: false, capability: '', count: 0, took_ms: 0, error: detail, at: Date.now() / 1000 }
     message.error(t('providers.testFail') + ': ' + detail + (isNew.value ? t('providers.testDraftHint') : ''))
   } finally {
     testing.value = false
   }
 }
+
+const lastTestDetail = computed(() =>
+  lastTest.value
+    ? `${lastTest.value.capability} × ${lastTest.value.count} (${lastTest.value.took_ms}ms)`
+    : '')
 
 function onCancel() {
   router.replace({ name: 'providers' })

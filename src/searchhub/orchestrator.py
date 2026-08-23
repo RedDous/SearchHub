@@ -32,6 +32,8 @@ class SearchHubEngine:
         self._registry: dict[str, Provider] = {}
         self._version = -1
         self.stats: dict[str, dict[str, Any]] = {}
+        # 最近一次连接测试结果（内存态，重启后重置）：{provider_id: {success, capability, count, took_ms, error?, at}}
+        self.provider_tests: dict[str, dict[str, Any]] = {}
 
     def maybe_reload(self) -> bool:
         if self.config.maybe_reload() or self._version != self.config.config_version:

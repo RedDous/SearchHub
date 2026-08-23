@@ -37,7 +37,7 @@ import { computed, h, onMounted, ref } from 'vue'
 import { useDialog, useMessage, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import { adminApi, type ProviderCfg, type ProviderType } from '@/api/admin'
+import { adminApi, type ProviderCfg, type ProviderTest, type ProviderType } from '@/api/admin'
 import { useProviderTypesStore } from '@/stores/providerTypes'
 import { t } from '@/i18n'
 
@@ -48,6 +48,7 @@ const typesStore = useProviderTypesStore()
 const loading = ref(false)
 const providers = ref<ProviderCfg[]>([])
 const keyCounts = ref<Record<string, number>>({})
+const configTests = ref<Record<string, ProviderTest>>({})
 
 const configuredIds = computed(() => new Set(providers.value.map((p) => p.id)))
 
@@ -81,6 +82,16 @@ const columns = computed<DataTableColumns<ProviderCfg>>(() => [
         { default: () => t(row.enabled ? 'providers.enabledTrue' : 'providers.enabledFalse') },
       ),
   },
+  {
+    title: t('providers.availability'),
+    key: 'availability',
+    render: (row) => {
+      const test = configTests.value[row.id]
+      if (!test) return h(NTag, { size: 'small', type: 'default' }, { default: () => t('providers.testNever') })
+      if (test.success) return h(NTag, { size: 'small', type: 'success' }, { default: () => t('providers.testOkShort') })
+      return h(NTag, { size: 'small', type: 'error' }, { default: () => t('providers.testFailShort') })
+    },
+  },
   { title: t('providers.weight'), key: 'weight' },
   { title: t('providers.priority'), key: 'priority' },
   { title: t('providers.keys'), key: 'keys', render: (row) => String(keyCounts.value[row.id] ?? 0) },
@@ -111,6 +122,7 @@ async function load() {
   try {
     const cfg = await adminApi.getConfig()
     providers.value = cfg.config.providers
+    configTests.value = cfg.provider_tests
     const counts = await Promise.all(
       cfg.config.providers.map(async (p) => {
         try {
