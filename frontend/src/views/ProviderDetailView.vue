@@ -160,6 +160,10 @@ async function load() {
     form.base_url = p.base_url ?? ''
     form.key_pool = { ...p.key_pool }
     form.options = Object.keys(p.options ?? {}).length ? JSON.stringify(p.options, null, 2) : ''
+    const cfgTests = cfg.provider_tests
+    if (props.id in cfgTests) {
+      lastTest.value = { ...cfgTests[props.id] }
+    }
   } catch (e) {
     message.error(e instanceof Error ? e.message : t('common.failed'))
   } finally {

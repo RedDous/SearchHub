@@ -36,9 +36,9 @@ export interface TokenInfo {
 }
 export interface ProviderTest {
   success: boolean
-  capability: string
-  count: number
-  took_ms: number
+  capability?: string
+  count?: number
+  took_ms?: number
   error?: string
   at: number
 }
