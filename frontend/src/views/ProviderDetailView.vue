@@ -236,7 +236,7 @@ async function onSave() {
     if (isNew.value) {
       await adminApi.createProvider(cfg)
       message.success(t('common.success'))
-      router.push({ name: 'providers' })
+      router.replace({ name: 'providers' })
       return
     }
     await adminApi.updateProvider(form.id, cfg)
@@ -265,7 +265,7 @@ async function onTest() {
 }
 
 function onCancel() {
-  router.push({ name: 'providers' })
+  router.replace({ name: 'providers' })
 }
 
 async function onAddKey() {

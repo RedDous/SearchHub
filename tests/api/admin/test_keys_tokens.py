@@ -116,3 +116,9 @@ def test_add_key_to_prefixless_provider_lenient(admin_client):
     # exa/ddg 无前缀约束，任意 key 可加
     r = admin_client.post("/api/admin/providers/exa/keys", json={"key": "some-random-key-1"})
     assert r.status_code == 200
+
+
+def test_jina_prefixed_key_into_tavily_reports_wrong_provider(admin_client):
+    r = admin_client.post("/api/admin/providers/tavily/keys", json={"key": "jina_xyz"})
+    assert r.status_code == 400
+    assert "jina" in r.json()["error"]

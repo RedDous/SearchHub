@@ -119,7 +119,7 @@ env = { SEARCHHUB_DATA = "/path/to/searchhub/data" }
 | Cursor | `.cursor/rules/*.mdc` |
 | Gemini CLI | `GEMINI.md` |
 
-可粘贴的通用片段（采用 AGENTS.md 的约定格式：`<!-- 名称 -->` 注释块包裹，便于工具自动管理/替换该段；各 agent 按自身约定读取对应文件并遵循指引）：
+可粘贴的通用片段：
 
 ```markdown
 <!-- SEARCHHUB_START -->

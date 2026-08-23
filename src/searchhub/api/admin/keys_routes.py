@@ -25,14 +25,14 @@ def _mask(key: str) -> str:
 def _validate_key_for_provider(provider_id: str, key: str) -> str | None:
     """返回错误信息（None = 通过）。校验目标供应商自身前缀与跨供应商误贴。"""
     for pid, cls in PROVIDER_CLASSES.items():
-        prefix = cls.schema.key_prefix
+        prefix = getattr(getattr(cls, "schema", None), "key_prefix", None)
         if not prefix or not key.startswith(prefix):
             continue
         if pid != provider_id:
             return f"该 Key 以 {prefix!r} 开头，疑似 {pid} 的 Key，请确认是否添加错供应商"
         return None
     cls = PROVIDER_CLASSES.get(provider_id)
-    if cls is not None and cls.schema.key_prefix:
+    if cls is not None and getattr(cls.schema, "key_prefix", None):
         return f"该 Key 格式与 {provider_id} 不符（应以 {cls.schema.key_prefix!r} 开头）"
     return None
 
@@ -56,11 +56,12 @@ async def list_keys(provider_id: str, request: Request):
 @router.post("/providers/{provider_id}/keys")
 async def add_key(provider_id: str, body: KeyBody, request: Request):
     svc = request.app.state.engine.config
-    error = _validate_key_for_provider(provider_id, body.key)
+    key = body.key.strip()
+    error = _validate_key_for_provider(provider_id, key)
     if error:
         raise HTTPException(status_code=400, detail=error)
     try:
-        svc.add_provider_key(provider_id, body.key)
+        svc.add_provider_key(provider_id, key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"success": True}
