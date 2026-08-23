@@ -10,7 +10,7 @@
           style="width: 140px"
         />
         <n-input v-model:value="filters.provider" :placeholder="t('history.provider')" style="width: 160px" clearable @keyup.enter="onSearch" />
-        <n-input v-model:value="filters.token" :placeholder="t('history.token')" style="width: 160px" clearable @keyup.enter="onSearch" />
+        <n-input v-model:value="filters.token" :placeholder="t('history.caller')" style="width: 160px" clearable @keyup.enter="onSearch" />
         <n-input v-model:value="filters.q" :placeholder="t('history.query')" style="width: 180px" clearable @keyup.enter="onSearch" />
         <n-select v-model:value="filters.range" :options="timePresets" style="width: 150px" />
         <n-button type="primary" @click="onSearch">{{ t('history.search') }}</n-button>
@@ -116,7 +116,12 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
         { default: () => t(row.cache_hit ? 'history.yes' : 'history.no') },
       ),
   },
-  { title: t('history.tookMs'), key: 'took_ms', width: 90 },
+  {
+    title: t('history.tookMs'),
+    key: 'took_ms',
+    width: 90,
+    render: (row) => `${Math.round(row.took_ms)} ms`,
+  },
   { title: t('history.resultCount'), key: 'result_count', width: 90 },
   {
     title: t('history.success'),
@@ -135,7 +140,7 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
       h('div', { class: 'detail' }, [
         h('div', { class: 'detail-block' }, [
           h('div', { class: 'detail-label' }, t('history.params')),
-          h(NCode, { value: row.params, wordWrap: true }),
+          h(NCode, { code: row.params, wordWrap: true }),
         ]),
         ...(row.error
           ? [
@@ -149,7 +154,7 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
           ? [
               h('div', { class: 'detail-block' }, [
                 h('div', { class: 'detail-label' }, t('history.preview')),
-                h(NCode, { value: row.response_preview, wordWrap: true }),
+                h(NCode, { code: row.response_preview, wordWrap: true }),
               ]),
             ]
           : []),
