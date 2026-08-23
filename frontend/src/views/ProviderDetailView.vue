@@ -10,7 +10,7 @@
                   :title="isNew && !entry ? t('providers.testUnsupported') : undefined" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
-        <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
+        <n-button @click="onCancel">{{ t('providers.back') }}</n-button>
         <n-button type="primary" :loading="saving" @click="onSave">
           {{ t('providers.save') }}
         </n-button>
