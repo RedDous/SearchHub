@@ -2,9 +2,12 @@
   <div class="dashboard">
     <div class="dashboard-head">
       <h1 class="page-title">{{ t('dashboard.title') }}</h1>
-      <n-button type="primary" :loading="loading" @click="load">
-        {{ t('dashboard.refresh') }}
-      </n-button>
+      <n-space align="center">
+        <span class="version-line">v{{ version }} · {{ commit }}</span>
+        <n-button type="primary" :loading="loading" @click="load">
+          {{ t('dashboard.refresh') }}
+        </n-button>
+      </n-space>
     </div>
 
     <n-grid :cols="4" :x-gap="12" :y-gap="12" class="stat-grid">
@@ -71,6 +74,8 @@ interface ChartRow {
 
 const message = useMessage()
 const loading = ref(false)
+const version = ref('-')
+const commit = ref('dev')
 const summary = ref<StatsSummary | null>(null)
 const chartRows = ref<ChartRow[]>([])
 
@@ -145,7 +150,13 @@ async function load() {
   if (loading.value) return
   loading.value = true
   try {
-    const [s, ts] = await Promise.all([adminApi.getStatsSummary(24), adminApi.getStatsTimeseries(24)])
+    const [cfg, s, ts] = await Promise.all([
+      adminApi.getConfig(),
+      adminApi.getStatsSummary(24),
+      adminApi.getStatsTimeseries(24),
+    ])
+    version.value = cfg.version
+    commit.value = cfg.commit.slice(0, 7)
     summary.value = s
     chartRows.value = ts.rows.map((r) => ({
       time: new Date(r.ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

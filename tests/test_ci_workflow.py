@@ -39,3 +39,10 @@ def test_workflow_compose_image_consistency():
     image = compose["services"]["searchhub"]["image"]
     assert image.startswith("ghcr.io/") and image.endswith("/searchhub:latest")
     # 工作流最终输出 tags 含 :latest（main 与 tag 分支均含）
+
+
+def test_workflow_passes_commit_build_arg():
+    wf = yaml.safe_load((ROOT / ".github/workflows/docker-image.yml").read_text())
+    steps = wf["jobs"]["build"]["steps"]
+    build = next(s for s in steps if "build-push-action" in s["uses"])
+    assert "SEARCHHUB_COMMIT" in build["with"]["build-args"]

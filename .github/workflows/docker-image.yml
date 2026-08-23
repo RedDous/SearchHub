@@ -39,5 +39,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ github.ref_type == 'tag' && format('{0}:{1},{0}:latest', steps.sha.outputs.image, github.ref_name) || format('{0}:latest,{0}:sha-{1}', steps.sha.outputs.image, steps.sha.outputs.short) }}
+          build-args: |
+            SEARCHHUB_COMMIT=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

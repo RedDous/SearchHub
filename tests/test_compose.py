@@ -30,7 +30,8 @@ def test_build_override_file(compose: dict):
     assert path.exists()
     merged = yaml.safe_load(path.read_text())
     svc = merged["services"]["searchhub"]
-    assert "build" in svc and svc["build"] == "."
+    assert svc["build"]["context"] == "."
+    assert "SEARCHHUB_COMMIT" in svc["build"]["args"]
     assert svc["image"] == "searchhub:local"
 
 

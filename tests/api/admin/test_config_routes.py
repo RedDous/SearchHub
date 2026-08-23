@@ -157,3 +157,16 @@ def test_create_ddg_with_base_url_allowed(admin_client):
                           json={"id": "ddg", "capabilities": ["search"],
                                 "base_url": "http://example.com"})
     assert r.status_code == 200
+
+
+def test_config_reports_version_and_commit(admin_client, monkeypatch):
+    monkeypatch.setenv("SEARCHHUB_COMMIT", "abc1234")
+    data = admin_client.get("/api/admin/config").json()["data"]
+    assert data["version"] == "0.1.0"
+    assert data["commit"] == "abc1234"
+
+
+def test_config_commit_defaults_to_dev(admin_client, monkeypatch):
+    monkeypatch.delenv("SEARCHHUB_COMMIT", raising=False)
+    data = admin_client.get("/api/admin/config").json()["data"]
+    assert data["commit"] == "dev"

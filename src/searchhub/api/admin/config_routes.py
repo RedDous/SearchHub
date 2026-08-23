@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from searchhub.api.admin.session import require_admin
 from searchhub.config import CacheConfig, HistoryConfig, ProviderConfig, StrategyConfig
+from searchhub import build_info
 from searchhub.providers import PROVIDER_CLASSES
 from searchhub.providers.schema import validate_provider_config
 
@@ -35,7 +36,9 @@ async def get_config(request: Request):
     return {"success": True, "data": {"config": data,
                                       "config_version": svc.config_version,
                                       "updated_at": svc.updated_at,
-                                      "password_is_default": svc.verify_admin_password("admin")}}
+                                      "password_is_default": svc.verify_admin_password("admin"),
+                                      "version": build_info()["version"],
+                                      "commit": build_info()["commit"]}}
 
 
 def _save(svc, cfg) -> None:

@@ -46,6 +46,8 @@ export interface AppConfigView {
   config_version: number
   updated_at: number
   password_is_default: boolean
+  version: string
+  commit: string
 }
 export interface KeyEntry { index: number; masked: string; status: { key: string; cooling_until: number; in_flight: number; ok: boolean } | null }
 export interface HistoryRow { id: number; ts: number; capability: string; query: string; params: string; providers: string; cache_hit: number; took_ms: number; result_count: number; success: number; error: string; token_name: string; response_preview: string }

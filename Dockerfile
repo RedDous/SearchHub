@@ -9,11 +9,13 @@ RUN npm run build
 # ---- runtime: 运行后端 ----
 FROM python:3.13-slim
 WORKDIR /app
+ARG SEARCHHUB_COMMIT=dev
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     SEARCHHUB_WEB_DIST=/app/web/dist \
     SEARCHHUB_HOST=0.0.0.0 \
-    SEARCHHUB_PORT=8000
+    SEARCHHUB_PORT=8000 \
+    SEARCHHUB_COMMIT=$SEARCHHUB_COMMIT
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 RUN pip install . --no-cache-dir

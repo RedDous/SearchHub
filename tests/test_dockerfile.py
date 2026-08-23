@@ -46,3 +46,8 @@ def test_dockerignore_exists_and_covers_essentials():
 def test_gitignore_covers_data_dir():
     gi = (ROOT / ".gitignore").read_text()
     assert "data/" in gi
+
+
+def test_runtime_commit_env(dockerfile: str):
+    assert "ARG SEARCHHUB_COMMIT=dev" in dockerfile
+    assert "SEARCHHUB_COMMIT=$SEARCHHUB_COMMIT" in dockerfile
