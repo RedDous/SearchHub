@@ -97,8 +97,8 @@ function ms(v: number | undefined): string {
 
 const chartOption = computed<EChartsOption>(() => ({
   tooltip: { trigger: 'axis' },
-  legend: { data: [t('dashboard.totalRequests'), t('dashboard.cacheHitRate')] },
-  grid: { left: 8, right: 8, top: 40, bottom: 8, containLabel: true },
+  legend: { data: [t('dashboard.totalRequests'), t('dashboard.cacheHitRate')], bottom: 4 },
+  grid: { left: 8, right: 8, top: 24, bottom: 32, containLabel: true },
   xAxis: {
     type: 'category',
     boundaryGap: false,

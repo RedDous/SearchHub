@@ -2,15 +2,12 @@
   <div>
     <div class="providers-head">
       <h1 class="page-title">{{ t('providers.title') }}</h1>
-      <n-button type="primary" @click="scrollToCatalog">
-        {{ t('providers.new') }}
-      </n-button>
     </div>
 
     <h2 class="section-title">{{ t('providers.configuredTitle') }}</h2>
     <n-data-table :columns="columns" :data="providers" :loading="loading" size="small" />
 
-    <h2 class="section-title" ref="catalogTitleRef">{{ t('providers.catalogTitle') }}</h2>
+    <h2 class="section-title">{{ t('providers.catalogTitle') }}</h2>
     <n-alert v-if="typesStore.error" type="error" :show-icon="false" class="catalog-error">
       {{ typesStore.error }}
     </n-alert>
@@ -51,7 +48,6 @@ const typesStore = useProviderTypesStore()
 const loading = ref(false)
 const providers = ref<ProviderCfg[]>([])
 const keyCounts = ref<Record<string, number>>({})
-const catalogTitleRef = ref<HTMLElement | null>(null)
 
 const configuredIds = computed(() => new Set(providers.value.map((p) => p.id)))
 
@@ -62,10 +58,6 @@ function isConfigured(type: string): boolean {
 function onCatalogClick(entry: ProviderType) {
   const configured = configuredIds.value.has(entry.type)
   router.push(configured ? { name: 'provider-detail', params: { id: entry.type } } : { name: 'provider-new', params: { type: entry.type } })
-}
-
-function scrollToCatalog() {
-  catalogTitleRef.value?.scrollIntoView({ behavior: 'smooth' })
 }
 
 const columns = computed<DataTableColumns<ProviderCfg>>(() => [
