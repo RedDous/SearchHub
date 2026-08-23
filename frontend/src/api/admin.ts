@@ -67,7 +67,16 @@ export interface AppConfigView {
   provider_status: Record<string, ProviderStatus>
 }
 export interface KeyEntry { index: number; masked: string; status: { key: string; cooling_until: number; in_flight: number; ok: boolean } | null }
-export interface HistoryRow { id: number; ts: number; capability: string; query: string; params: string; providers: string; cache_hit: number; took_ms: number; result_count: number; success: number; error: string; token_name: string; response_preview: string }
+export interface HistoryRow { id: number; ts: number; capability: string; query: string; params: string; providers: string; cache_hit: number; took_ms: number; result_count: number; success: number; error: string; token_name: string; response_preview: string; has_full: number }
+
+export interface HistoryFullEntry {
+  title?: string
+  url: string
+  description?: string
+  content?: string
+  provider?: string
+  error?: string | null
+}
 export interface StatsSummary {
   total: number; success: number; cache_hits: number; avg_took_ms: number
   searches: number; extracts: number; success_rate: number; cache_hit_rate: number
@@ -101,6 +110,9 @@ export const adminApi = {
     request<{ config_version: number }>('/api/admin/settings', { method: 'PUT', body: partial }),
   listHistory: (params: Record<string, string | number | undefined>) =>
     request<{ rows: HistoryRow[] }>('/api/admin/history', { params }),
+    getHistoryFull(id: number) {
+      return request<{ response_full: string }>(`/api/admin/history/${id}/full`)
+    },
   getStatsSummary: (hours = 24) => request<StatsSummary>('/api/admin/stats/summary', { params: { hours } }),
   getStatsTimeseries: (hours = 24) => request<{ rows: TimeseriesRow[] }>('/api/admin/stats/timeseries', { params: { hours } }),
 }

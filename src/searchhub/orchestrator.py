@@ -204,6 +204,8 @@ class SearchHubEngine:
                 "token_name": token_name,
                 "response_preview": self._preview(resp, capability,
                                                   redact=cfg.history.redact_queries),
+                "response_full": self._full_response(resp, capability,
+                                                     redact=cfg.history.redact_queries),
             })
         except Exception as e:
             logger.debug("request log failed: %s", e)
@@ -217,6 +219,22 @@ class SearchHubEngine:
         else:
             parts = [f"{i.url}|{'ok' if i.error is None else i.error}" for i in resp.data[:20]]
         return " || ".join(parts)[:2000]
+
+    def _full_response(self, resp, capability: str, redact: bool = False) -> str:
+        """全量响应（未截断），结构化 JSON：search → items[{title,url,description,position,provider,published_at}]；
+        extract → items[{url,title,content,provider,error}]。redact 模式下 URL 哈希。"""
+        def redact_url(u: str) -> str:
+            return hashlib.sha1(u.encode()).hexdigest() if redact else u
+        if capability == "search":
+            items = [{"title": i.title, "url": redact_url(i.url), "description": i.description,
+                      "position": i.position, "provider": i.provider,
+                      "published_at": i.published_at}
+                     for i in resp.data.web]
+        else:
+            items = [{"url": redact_url(i.url), "title": i.title, "content": i.content,
+                      "provider": i.provider, "error": i.error}
+                     for i in resp.data]
+        return json.dumps({"items": items}, ensure_ascii=False)
 
     def provider_status(self) -> list[dict]:
         self.maybe_reload()

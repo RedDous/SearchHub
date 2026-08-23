@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from searchhub.api.admin.session import require_admin
 
@@ -20,6 +20,14 @@ async def list_history(request: Request, capability: str | None = None,
         from_ts=from_ts, to_ts=to_ts, q=q,
         limit=max(min(limit, 500), 0), offset=max(offset, 0))
     return {"success": True, "data": {"rows": rows}}
+
+
+@router.get("/history/{row_id}/full")
+async def history_full(row_id: int, request: Request):
+    full = await request.app.state.engine.history.get_full(row_id)
+    if full is None:
+        raise HTTPException(status_code=404, detail=f"history row {row_id} not found")
+    return {"success": True, "data": {"response_full": full}}
 
 
 @router.get("/stats/summary")

@@ -33,10 +33,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, reactive, ref } from 'vue'
-import { useMessage, NCode, NEllipsis, NTag } from 'naive-ui'
+import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
+import { useMessage, NButton, NCode, NEllipsis, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
-import { adminApi, type HistoryRow } from '@/api/admin'
+import type { PropType } from 'vue'
+import { adminApi, type HistoryFullEntry, type HistoryRow } from '@/api/admin'
 import { t } from '@/i18n'
 
 const message = useMessage()
@@ -59,6 +60,109 @@ const capabilityOptions = computed(() => [
   { label: 'search', value: 'search' },
   { label: 'extract', value: 'extract' },
 ])
+
+const fullMap = ref<Record<number, HistoryFullEntry[] | null>>({})
+const fullLoading = ref<Record<number, boolean>>({})
+const expandedFull = ref<Record<number, boolean>>({})
+
+async function toggleFull(row: HistoryRow) {
+  const id = row.id
+  if (expandedFull.value[id]) {
+    expandedFull.value[id] = false
+    return
+  }
+  expandedFull.value[id] = true
+  if (fullMap.value[id]) return
+  fullLoading.value[id] = true
+  try {
+    const r = await adminApi.getHistoryFull(id)
+    const parsed = JSON.parse(r.response_full) as { items?: HistoryFullEntry[] }
+    fullMap.value[id] = parsed.items ?? []
+  } catch (e) {
+    fullMap.value[id] = null
+    message.error(e instanceof Error ? e.message : t('common.failed'))
+  } finally {
+    fullLoading.value[id] = false
+  }
+}
+
+const HistoryExpand = defineComponent({
+  props: { row: { type: Object as PropType<HistoryRow>, required: true } },
+  setup(props) {
+    return () => {
+      const row = props.row
+      const id = row.id
+      const entries = fullMap.value[id]
+      const loading = fullLoading.value[id]
+      const open = expandedFull.value[id]
+      const blocks = [
+        h('div', { class: 'detail-block' }, [
+          h('div', { class: 'detail-title' }, t('history.params')),
+          h('div', { class: 'detail-content' }, [
+            h(NCode, { code: row.params, wordWrap: true }),
+          ]),
+        ]),
+      ]
+      if (row.error) {
+        blocks.push(
+          h('div', { class: 'detail-block' }, [
+            h('div', { class: 'detail-title detail-title-error' }, t('history.error')),
+            h('div', { class: 'detail-content' }, [
+              h('pre', { class: 'detail-error' }, row.error),
+            ]),
+          ]),
+        )
+      }
+      blocks.push(
+        h('div', { class: 'detail-block' }, [
+          h('div', { class: 'detail-title' }, t('history.preview')),
+          h('div', { class: 'detail-content' }, [
+            h(NCode, { code: row.response_preview, wordWrap: true }),
+          ]),
+          row.has_full
+            ? h('div', { class: 'detail-full-toggle' }, [
+                h(
+                  NButton,
+                  { size: 'tiny', type: 'primary', ghost: true, loading, onClick: () => toggleFull(row) },
+                  { default: () => (open ? t('history.collapseFull') : t('history.viewFull')) },
+                ),
+              ])
+            : null,
+        ]),
+      )
+      if (open && entries) {
+        const isSearch = row.capability === 'search'
+        const items = entries.map((it, i) =>
+          isSearch
+            ? h('div', { class: 'full-item' }, [
+                h('a', { class: 'full-item-title', href: it.url, target: '_blank', rel: 'noopener' }, `${i + 1}. ${it.title ?? it.url}`),
+                h('div', { class: 'full-item-url' }, it.url),
+                it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
+                it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
+              ])
+            : it.error
+              ? h('div', { class: 'full-item full-item-error' }, [
+                  h('div', { class: 'full-item-title' }, it.url),
+                  h('div', { class: 'full-item-desc' }, it.error),
+                ])
+              : h('div', { class: 'full-item' }, [
+                  h('div', { class: 'full-item-title' }, it.url),
+                  it.title ? h('div', { class: 'full-item-desc' }, it.title) : null,
+                  h('pre', { class: 'full-item-content' }, it.content ?? ''),
+                  it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
+                ]),
+        )
+        blocks.push(
+          h('div', { class: 'detail-block' }, [
+            h('div', { class: 'detail-title' }, t('history.fullResponse')),
+            h('div', { class: 'detail-content' }, [h('div', { class: 'full-list' }, items)]),
+          ]),
+        )
+      }
+      return h('div', { class: 'detail' }, blocks)
+    }
+  },
+})
 
 const timePresets = computed(() => [
   { label: t('history.lastHour'), value: '1h' },
@@ -136,35 +240,7 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   },
   {
     type: 'expand',
-    renderExpand: (row) =>
-      h('div', { class: 'detail' }, [
-        h('div', { class: 'detail-block' }, [
-          h('div', { class: 'detail-title' }, t('history.params')),
-          h('div', { class: 'detail-content' }, [
-            h(NCode, { code: row.params, wordWrap: true }),
-          ]),
-        ]),
-        ...(row.error
-          ? [
-              h('div', { class: 'detail-block' }, [
-                h('div', { class: 'detail-title detail-title-error' }, t('history.error')),
-                h('div', { class: 'detail-content' }, [
-                  h('pre', { class: 'detail-error' }, row.error),
-                ]),
-              ]),
-            ]
-          : []),
-        ...(row.response_preview
-          ? [
-              h('div', { class: 'detail-block' }, [
-                h('div', { class: 'detail-title' }, t('history.preview')),
-                h('div', { class: 'detail-content' }, [
-                  h(NCode, { code: row.response_preview, wordWrap: true }),
-                ]),
-              ]),
-            ]
-          : []),
-      ]),
+    renderExpand: (row) => h(HistoryExpand, { row }),
   },
 ])
 
@@ -254,5 +330,63 @@ onMounted(load)
   word-break: break-all;
   color: #d03050;
   font-size: 12px;
+}
+.detail-full-toggle {
+  margin-top: 8px;
+}
+.full-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.full-item {
+  padding: 8px 10px;
+  border: 1px solid var(--n-border-color, #e0e0e6);
+  border-radius: 6px;
+}
+.full-item-error {
+  border-color: #f0c9c9;
+  background: #fdf3f3;
+}
+.full-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--n-text-color-1, #1f1f1f);
+  text-decoration: none;
+  word-break: break-all;
+}
+.full-item-title:hover {
+  text-decoration: underline;
+}
+.full-item-url {
+  font-size: 12px;
+  color: #2080f0;
+  word-break: break-all;
+  margin-top: 2px;
+}
+.full-item-desc {
+  font-size: 12px;
+  color: var(--n-text-color-3, #888);
+  margin-top: 2px;
+  word-break: break-all;
+}
+.full-item-content {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 360px;
+  overflow: auto;
+  color: var(--n-text-color-2, #333);
+}
+.full-item-provider {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #888;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  padding: 1px 6px;
 }
 </style>

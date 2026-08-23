@@ -17,7 +17,8 @@ def entry(**kw) -> dict:
     base = {"ts": time.time(), "capability": "search", "query": "python",
             "params": "{}", "providers": "exa,ddg", "cache_hit": False,
             "took_ms": 120.0, "result_count": 5, "success": True,
-            "error": "", "token_name": "agent1", "response_preview": "a | b"}
+            "error": "", "token_name": "agent1", "response_preview": "a | b",
+            "response_full": '{"items": []}'}
     base.update(kw)
     return base
 

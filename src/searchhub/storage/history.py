@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS request_log (
     success INTEGER NOT NULL DEFAULT 1,
     error TEXT NOT NULL DEFAULT '',
     token_name TEXT NOT NULL DEFAULT '',
-    response_preview TEXT NOT NULL DEFAULT ''
+    response_preview TEXT NOT NULL DEFAULT '',
+    response_full TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_request_log_ts ON request_log (ts);
 CREATE INDEX IF NOT EXISTS idx_request_log_cap ON request_log (capability);
@@ -35,18 +36,28 @@ class RequestLogRepo:
             self._conn = await open_db(self.db_path)
             await self._conn.executescript(_SCHEMA)
             await self._conn.commit()
+            await self._migrate()
         return self._conn
+
+    async def _migrate(self) -> None:
+        cur = await self._conn.execute("PRAGMA table_info(request_log)")
+        cols = {row[1] for row in await cur.fetchall()}
+        if "response_full" not in cols:
+            await self._conn.execute(
+                "ALTER TABLE request_log ADD COLUMN response_full TEXT NOT NULL DEFAULT ''")
+            await self._conn.commit()
 
     async def record(self, entry: dict) -> None:
         conn = await self._conn_ensure()
         await conn.execute(
             "INSERT INTO request_log (ts, capability, query, params, providers, cache_hit, "
-            "took_ms, result_count, success, error, token_name, response_preview) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "took_ms, result_count, success, error, token_name, response_preview, "
+            "response_full) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (entry["ts"], entry["capability"], entry["query"], entry["params"],
              entry["providers"], int(entry["cache_hit"]), entry["took_ms"],
              entry["result_count"], int(entry["success"]), entry["error"],
-             entry["token_name"], entry["response_preview"]),
+             entry["token_name"], entry["response_preview"], entry["response_full"]),
         )
         await conn.commit()
 
@@ -77,12 +88,22 @@ class RequestLogRepo:
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
         conn = await self._conn_ensure()
         cur = await conn.execute(
-            f"SELECT * FROM request_log {where} ORDER BY ts DESC LIMIT ? OFFSET ?",
+            "SELECT id, ts, capability, query, params, providers, cache_hit, took_ms, "
+            "result_count, success, error, token_name, response_preview, "
+            "(response_full != '') AS has_full "
+            f"FROM request_log {where} ORDER BY ts DESC LIMIT ? OFFSET ?",
             (*args, int(limit), int(offset)),
         )
         rows = await cur.fetchall()
         cols = [d[0] for d in cur.description]
         return [dict(zip(cols, r)) for r in rows]
+
+    async def get_full(self, row_id: int) -> str | None:
+        conn = await self._conn_ensure()
+        cur = await conn.execute(
+            "SELECT response_full FROM request_log WHERE id = ?", (row_id,))
+        row = await cur.fetchone()
+        return row[0] if row else None
 
     async def purge_before(self, ts: float) -> int:
         conn = await self._conn_ensure()
