@@ -12,21 +12,29 @@
 
 适合 NAS 等自托管场景。前提：已安装 Docker 与 Docker Compose v2。两种方式任选：
 
-**方式 A：拉取镜像（推荐）**——无需源码，镜像已发布到 GHCR：
+**方式 A：拉取镜像（推荐）**
+
+无需拉取源码，直接拉取镜像运行：
 
 ```bash
-git clone https://github.com/RedDous/SearchHub.git && cd SearchHub   # 仅需要 compose 文件与 .env 模板
-docker compose up -d
+mkdir -p data
+docker run -d --name searchhub \
+  -p 8000:8000 \
+  -v "$PWD/data:/data" \
+  -e SEARCHHUB_DATA=/data \
+  -e ADMIN_PASSWORD=admin \
+  --restart unless-stopped \
+  ghcr.io/reddous/searchhub:latest
 ```
 
-**方式 B：源码构建**——本地构建镜像（首次含前端编译，约几分钟）：
+（`docker run` 会自动从 `ghcr.io/reddous/searchhub` 拉取最新镜像；也可先手动执行 `docker pull ghcr.io/reddous/searchhub:latest`）
+
+**方式 B：源码构建**
 
 ```bash
 git clone https://github.com/RedDous/SearchHub.git && cd SearchHub
 docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
-
-> 说明：镜像尚未发布到 GHCR 时（首个 release 前），只能走方式 B。方式 A 的更新 = `docker compose pull && docker compose up -d`；方式 B 的更新 = `git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build`。其余（登录/引导配置/sidecar/备份）两种方式一致。
 
 打开 `http://<NAS-IP>:8000`：
 
@@ -36,9 +44,6 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 **可选 sidecar**（自建 SearXNG 聚合搜索与 crawl4ai 网页提取副车，按需启用）：
 
 ```bash
-# 方式 A（拉取镜像）
-docker compose --profile sidecars up -d
-# 方式 B（源码构建）
 docker compose -f docker-compose.yml -f docker-compose.build.yml --profile sidecars up -d
 ```
 
