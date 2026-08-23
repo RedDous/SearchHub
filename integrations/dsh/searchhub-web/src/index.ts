@@ -1,10 +1,9 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import type {} from '@deepseek-ai/dsh-web'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
-import { SearchHubFetchProvider, SearchHubSearchProvider, isAvailable, type SearchHubProviderOptions } from './provider.js'
+import { SearchHubFetchProvider, SearchHubSearchProvider, type SearchHubProviderOptions } from './provider.js'
 
 export const name = 'searchhub-dsh-web'
 export const inject = ['web']

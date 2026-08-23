@@ -64,6 +64,7 @@ export class SearchHubSearchProvider implements WebSearchProvider {
       body = await resp.json()
     } catch (err) {
       if (err instanceof WebError) throw err
+      if (err instanceof DOMException && err.name === 'AbortError') throw err
       throw new WebError(`SearchHub search failed: ${(err as Error).message ?? String(err)}`, 'WEB_PROVIDER_ERROR')
     }
     const payload = body as { success?: boolean; data?: { web?: Array<Record<string, unknown>> }; error?: string }
@@ -101,6 +102,7 @@ export class SearchHubFetchProvider implements WebFetchProvider {
       body = await resp.json()
     } catch (err) {
       if (err instanceof WebError) throw err
+      if (err instanceof DOMException && err.name === 'AbortError') throw err
       throw new WebError(`SearchHub fetch failed: ${(err as Error).message ?? String(err)}`, 'WEB_PROVIDER_ERROR')
     }
     const payload = body as { success?: boolean; data?: Array<Record<string, unknown>>; error?: string }

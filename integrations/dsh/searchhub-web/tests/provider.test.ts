@@ -53,6 +53,16 @@ describe('SearchHubSearchProvider', () => {
     await expect(new SearchHubSearchProvider(() => ({ baseURL: base, resolveToken: async () => '' })).search({ query: 'q' }))
       .rejects.toThrow(WebError)
   })
+
+  it('propagates AbortError unchanged', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError')) as unknown as typeof fetch
+    const controller = new AbortController()
+    controller.abort()
+    const err = await new SearchHubSearchProvider(opts).search({ query: 'q' }, controller.signal).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(DOMException)
+    expect((err as DOMException).name).toBe('AbortError')
+    expect(err).not.toBeInstanceOf(WebError)
+  })
 })
 
 describe('SearchHubFetchProvider', () => {
@@ -87,5 +97,15 @@ describe('SearchHubFetchProvider', () => {
       { url: 'https://other.com', content: 'x' },
     ] }), { status: 200 })) as unknown as typeof fetch
     await expect(new SearchHubFetchProvider(opts).fetch({ url: 'https://a.com' })).rejects.toThrow('returned no result')
+  })
+
+  it('propagates AbortError unchanged', async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new DOMException('The operation was aborted.', 'AbortError')) as unknown as typeof fetch
+    const controller = new AbortController()
+    controller.abort()
+    const err = await new SearchHubFetchProvider(opts).fetch({ url: 'https://a.com' }, controller.signal).catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(DOMException)
+    expect((err as DOMException).name).toBe('AbortError')
+    expect(err).not.toBeInstanceOf(WebError)
   })
 })

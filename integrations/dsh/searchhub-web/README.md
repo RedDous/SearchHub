@@ -25,7 +25,7 @@ dsh 处于 dev-preview，插件安装机制以其当前版本为准。本插件�
 ## 验证
 
 - 在 dsh 中发起 web search，结果应命中 SearchHub 历史记录；fetch 返回页面正文（markdown）
-- 未配置 token 时，操作抛 `WebError('WEB_PROVIDER_ERROR')`，错误提示提示配置（token 值绝不进入错误信息或日志）
+- 未配置 token 时，操作抛 `WebError('WEB_PROVIDER_ERROR')`，错误提示配置（token 值绝不进入错误信息或日志）
 - provider 就绪判断：`isAvailable()` 要求 baseURL 可解析且 token 可达（字面 token 或 resolveToken 路径）
 
 ## 开发
