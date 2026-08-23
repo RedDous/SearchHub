@@ -139,22 +139,28 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
     renderExpand: (row) =>
       h('div', { class: 'detail' }, [
         h('div', { class: 'detail-block' }, [
-          h('div', { class: 'detail-label' }, t('history.params')),
-          h(NCode, { code: row.params, wordWrap: true }),
+          h('div', { class: 'detail-title' }, t('history.params')),
+          h('div', { class: 'detail-content' }, [
+            h(NCode, { code: row.params, wordWrap: true }),
+          ]),
         ]),
         ...(row.error
           ? [
               h('div', { class: 'detail-block' }, [
-                h('div', { class: 'detail-label' }, t('history.error')),
-                h('pre', { class: 'detail-error' }, row.error),
+                h('div', { class: 'detail-title detail-title-error' }, t('history.error')),
+                h('div', { class: 'detail-content' }, [
+                  h('pre', { class: 'detail-error' }, row.error),
+                ]),
               ]),
             ]
           : []),
         ...(row.response_preview
           ? [
               h('div', { class: 'detail-block' }, [
-                h('div', { class: 'detail-label' }, t('history.preview')),
-                h(NCode, { code: row.response_preview, wordWrap: true }),
+                h('div', { class: 'detail-title' }, t('history.preview')),
+                h('div', { class: 'detail-content' }, [
+                  h(NCode, { code: row.response_preview, wordWrap: true }),
+                ]),
               ]),
             ]
           : []),
@@ -220,21 +226,33 @@ onMounted(load)
   margin-bottom: 16px;
 }
 .detail {
-  padding: 8px 16px;
+  padding: 12px 16px 4px;
 }
 .detail-block {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
-.detail-label {
-  font-size: 12px;
+.detail-title {
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 4px;
-  color: var(--n-text-color-3, #999);
+  color: var(--n-text-color-2, #333);
+  margin-bottom: 6px;
+}
+.detail-title-error {
+  color: #d03050;
+}
+.detail-content {
+  border: 1px solid var(--n-border-color, #e0e0e6);
+  border-radius: 6px;
+  background: var(--n-color-2, #fafafa);
+  padding: 8px 12px;
+  max-height: 280px;
+  overflow: auto;
 }
 .detail-error {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
   color: #d03050;
+  font-size: 12px;
 }
 </style>
