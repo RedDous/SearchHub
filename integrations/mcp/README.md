@@ -119,17 +119,23 @@ env = { SEARCHHUB_DATA = "/path/to/searchhub/data" }
 | Cursor | `.cursor/rules/*.mdc` |
 | Gemini CLI | `GEMINI.md` |
 
-可粘贴的通用片段：
+可粘贴的通用片段（采用 AGENTS.md 的约定格式：`<!-- 名称 -->` 注释块包裹，便于工具自动管理/替换该段；各 agent 按自身约定读取对应文件并遵循指引）：
 
 ```markdown
-## Web 搜索与提取
+<!-- searchhub -->
+Use the `searchhub` MCP to search the web and extract page content when the user asks about current events, general knowledge, specific URLs, or anything not covered by other tools (e.g. context7 for library docs). It returns aggregated results from multiple providers with a unified shape.
 
-需要最新信息、实时数据或网页内容时，使用 MCP 工具（经 SearchHub 聚合，无需直接访问网页）：
+Use AFTER context7: context7 is preferred for library/framework documentation. Use `searchhub` when context7 doesn't cover the topic or the user needs real-time/online information.
 
-- `web_search(query, limit?)`：网页搜索，返回 `{success, data: {web: [{title, url, description}]}}` 形状的 JSON
-- `web_extract(urls, format?)`：网页内容提取，返回 JSON 数组（每项含 url/title/content）
+## Tools
 
-优先使用这两个工具而非模型内置知识；搜索前不确定时先用 `web_search` 验证或补充信息。
+- `web_search(query, limit?, providers?, strategy?)` — search the web; returns JSON `{success, data: {web: [{title, url, description, position}]}}`
+- `web_extract(urls, format?, max_chars?)` — extract page content; returns JSON array (each item has url/title/content)
+
+## Steps
+
+1. For open-ended questions, start with `web_search` to find relevant pages
+2. If a specific URL is provided or a result looks promising, use `web_extract` to get the full content
+3. Synthesize the information into a concise answer, citing the returned urls
 ```
 
-各 agent 会按自身约定读取对应文件并遵循其中对工具的使用指引。
