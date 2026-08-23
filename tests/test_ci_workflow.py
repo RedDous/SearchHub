@@ -25,8 +25,9 @@ def test_workflow_builds_multiarh_and_pushes_ghcr():
     assert build["with"]["platforms"] == "linux/amd64,linux/arm64"
     assert build["with"]["push"] is True
     assert "ghcr.io" in build["with"]["tags"]
-    assert "sha-" in build["with"]["tags"]  # 仅 main 分支表达式含 sha-<12>
+    assert "sha-" in build["with"]["tags"]   # 仅 main 分支表达式含 sha-<12>
     assert ":latest" in build["with"]["tags"]
+    assert build["with"]["tags"] == build["with"]["tags"].lower()  # Docker 仓库名必须小写
 
 
 def test_workflow_compose_image_consistency():

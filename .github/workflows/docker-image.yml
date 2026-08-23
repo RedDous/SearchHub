@@ -30,6 +30,7 @@ jobs:
         with:
           script: |
             core.setOutput('short', context.sha.slice(0, 12))
+            core.setOutput('image', 'ghcr.io/' + context.repo.owner.toLowerCase() + '/searchhub')
 
       - uses: docker/build-push-action@v6
         with:
@@ -37,6 +38,6 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ github.ref_type == 'tag' && format('ghcr.io/{0}/searchhub:{1},ghcr.io/{0}/searchhub:latest', github.repository_owner, github.ref_name) || format('ghcr.io/{0}/searchhub:latest,ghcr.io/{0}/searchhub:sha-{1}', github.repository_owner, steps.sha.outputs.short) }}
+          tags: ${{ github.ref_type == 'tag' && format('{0}:{1},{0}:latest', steps.sha.outputs.image, github.ref_name) || format('{0}:latest,{0}:sha-{1}', steps.sha.outputs.image, steps.sha.outputs.short) }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
