@@ -138,18 +138,17 @@ async function onCopy() {
     }
   }
   if (!ok) {
+    const ta = document.createElement('textarea')
+    ta.value = token
+    ta.style.position = 'fixed'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.focus()
+    ta.select()
     try {
-      const ta = document.createElement('textarea')
-      ta.value = token
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.focus()
-      ta.select()
       ok = document.execCommand('copy')
+    } finally {
       document.body.removeChild(ta)
-    } catch {
-      ok = false
     }
   }
   if (ok) {
