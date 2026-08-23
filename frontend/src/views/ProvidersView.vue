@@ -7,14 +7,49 @@
     <n-alert v-if="typesStore.error" type="error" :show-icon="false" class="catalog-error">
       {{ typesStore.error }}
     </n-alert>
-    <n-data-table :columns="columns" :data="rows" :loading="loading" size="small" />
+    <n-spin :show="loading">
+      <n-grid :cols="3" responsive="screen" :x-gap="12" :y-gap="12">
+        <n-grid-item v-for="row in rows" :key="row.id">
+          <n-card size="small" class="provider-card">
+            <div class="card-top">
+              <div class="card-name">{{ row.name }}</div>
+              <status-tag :id="row.id" :configured="row.configured" />
+            </div>
+            <n-space :size="6" class="card-caps">
+              <n-tag v-for="c in row.capabilities" :key="c" size="small" :bordered="false">
+                {{ c }}
+              </n-tag>
+            </n-space>
+            <div v-if="row.configured" class="card-meta">
+              {{ t('providers.keys') }} ×{{ keyCounts[row.id] ?? 0 }} ·
+              {{ t('providers.weight') }} {{ row.weight }} ·
+              {{ t('providers.priority') }} {{ row.priority }}
+            </div>
+            <n-space :size="6" class="card-actions">
+              <template v-if="row.configured">
+                <n-button size="small" type="primary" ghost @click="router.push(`/providers/${row.id}`)">
+                  {{ t('providers.view') }}
+                </n-button>
+                <n-button size="small" type="error" ghost @click="onDelete(row)">
+                  {{ t('providers.delete') }}
+                </n-button>
+              </template>
+              <template v-else>
+                <n-button size="small" type="primary" @click="router.push({ name: 'provider-new', params: { type: row.id } })">
+                  {{ t('providers.add') }}
+                </n-button>
+              </template>
+            </n-space>
+          </n-card>
+        </n-grid-item>
+      </n-grid>
+    </n-spin>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, defineComponent, h, onMounted, ref } from 'vue'
 import { useDialog, useMessage, NButton, NSpace, NTag } from 'naive-ui'
-import type { DataTableColumns } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { adminApi, type ProviderCfg, type ProviderStatus } from '@/api/admin'
 import { useProviderTypesStore } from '@/stores/providerTypes'
@@ -50,76 +85,27 @@ const rows = computed<Row[]>(() => {
   return list
 })
 
-const statusTag = computed(() => (id: string, configured: boolean) => {
-  if (!configured) return h(NTag, { size: 'small', type: 'default' }, { default: () => t('providers.unconfigured') })
-  const st = configStatus.value[id]
-  if (!st) return h(NTag, { size: 'small', type: 'default' }, { default: () => t('providers.testNever') })
-  const map: Record<string, ['success' | 'error' | 'default', string]> = {
-    ok: ['success', t('providers.testOkShort')],
-    failed: ['error', t('providers.testFailShort')],
-    untested: ['default', t('providers.testNever')],
-    missing_key: ['error', t('providers.missingKey')],
-    missing_base_url: ['error', t('providers.missingBaseUrl')],
-  }
-  const [type, text] = map[st.status] ?? ['default', st.status]
-  return h(NTag, { size: 'small', type }, { default: () => text })
+const StatusTag = defineComponent({
+  props: { id: { type: String, required: true }, configured: { type: Boolean, required: true } },
+  setup(props) {
+    return () => {
+      if (!props.configured) {
+        return h(NTag, { size: 'small', type: 'default' }, { default: () => t('providers.unconfigured') })
+      }
+      const st = configStatus.value[props.id]
+      if (!st) return h(NTag, { size: 'small', type: 'default' }, { default: () => t('providers.testNever') })
+      const map: Record<string, ['success' | 'error' | 'default', string]> = {
+        ok: ['success', t('providers.testOkShort')],
+        failed: ['error', t('providers.testFailShort')],
+        untested: ['default', t('providers.testNever')],
+        missing_key: ['error', t('providers.missingKey')],
+        missing_base_url: ['error', t('providers.missingBaseUrl')],
+      }
+      const [type, text] = map[st.status] ?? ['default', st.status]
+      return h(NTag, { size: 'small', type }, { default: () => text })
+    }
+  },
 })
-
-const columns = computed<DataTableColumns<Row>>(() => [
-  {
-    title: t('providers.id'),
-    key: 'id',
-    render: (row) => h('span', { class: 'provider-cell' }, [
-      h('span', { class: 'provider-name' }, row.name),
-      h('span', { class: 'provider-sub' }, row.id),
-    ]),
-  },
-  {
-    title: t('providers.availability'),
-    key: 'availability',
-    render: (row) => statusTag.value(row.id, row.configured),
-  },
-  {
-    title: t('providers.capabilities'),
-    key: 'capabilities',
-    render: (row) =>
-      h(
-        'span',
-        row.capabilities.map((c) => h(NTag, { size: 'small', style: 'margin-right: 6px' }, { default: () => c })),
-      ),
-  },
-  { title: t('providers.keys'), key: 'keys', render: (row) => (row.configured ? String(keyCounts.value[row.id] ?? 0) : '—') },
-  { title: t('providers.weight'), key: 'weight', render: (row) => (row.configured ? String(row.weight) : '—') },
-  { title: t('providers.priority'), key: 'priority', render: (row) => (row.configured ? String(row.priority) : '—') },
-  {
-    title: t('providers.actions'),
-    key: 'actions',
-    render: (row) =>
-      h(NSpace, { size: 6 }, {
-        default: () =>
-          row.configured
-            ? [
-                h(
-                  NButton,
-                  { size: 'small', type: 'primary', ghost: true, onClick: () => router.push(`/providers/${row.id}`) },
-                  { default: () => t('providers.view') },
-                ),
-                h(
-                  NButton,
-                  { size: 'small', type: 'error', ghost: true, onClick: () => onDelete(row as ProviderCfg) },
-                  { default: () => t('providers.delete') },
-                ),
-              ]
-            : [
-                h(
-                  NButton,
-                  { size: 'small', type: 'primary', onClick: () => router.push({ name: 'provider-new', params: { type: row.id } }) },
-                  { default: () => t('providers.add') },
-                ),
-              ],
-      }),
-  },
-])
 
 async function load() {
   if (loading.value) return
@@ -146,7 +132,7 @@ async function load() {
   }
 }
 
-function onDelete(row: ProviderCfg) {
+function onDelete(row: Row) {
   dialog.warning({
     title: t('providers.delete'),
     content: t('providers.deleteProviderConfirm').replace('{id}', row.id),
@@ -185,16 +171,28 @@ onMounted(() => {
 .catalog-error {
   margin-bottom: 12px;
 }
-.provider-cell {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
+.provider-card {
+  height: 100%;
 }
-.provider-name {
+.card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.card-name {
+  font-size: 15px;
   font-weight: 600;
 }
-.provider-sub {
-  font-size: 12px;
+.card-caps {
+  margin-bottom: 10px;
+}
+.card-meta {
+  font-size: 13px;
   color: #888;
+  margin-bottom: 10px;
+}
+.card-actions {
+  justify-content: flex-end;
 }
 </style>
