@@ -100,6 +100,12 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   },
   { title: t('history.provider'), key: 'providers' },
   {
+    title: t('history.caller'),
+    key: 'token_name',
+    width: 120,
+    render: (row) => row.token_name || '—',
+  },
+  {
     title: t('history.cacheHit'),
     key: 'cache_hit',
     width: 90,
@@ -123,7 +129,6 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
         { default: () => t(row.success ? 'history.successYes' : 'history.successNo') },
       ),
   },
-  { title: t('history.token'), key: 'token_name' },
   {
     type: 'expand',
     renderExpand: (row) =>
