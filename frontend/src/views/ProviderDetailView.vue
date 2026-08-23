@@ -3,7 +3,8 @@
     <div class="detail-head">
       <h1 class="page-title">{{ isNew ? (entry?.name ?? t('providers.new')) : form.id }}</h1>
       <n-space>
-        <n-button v-if="!isNew || !!entry" :loading="testing" @click="onTest">
+        <n-button :loading="testing" :disabled="isNew && !entry"
+                  :title="isNew && !entry ? t('providers.testUnsupported') : undefined" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
         <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
