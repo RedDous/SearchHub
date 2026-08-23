@@ -48,3 +48,29 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 - `.env` 完全可选——不创建也能零配置启动（首次密码即默认 admin）；如密码含 `$` 请用 `$$` 转义（可复制 `.env.example` 作为模板）
 - 前端已内置镜像，无需单独构建（方式 A 直接拉取；方式 B 的 `--build` 已包含前端编译）
 - 镜像内以 root 运行（家用场景简化；如需非 root 可在 compose 加 `user:`）
+
+## 供应商配置
+
+在管理后台「供应商」页按目录点选类型，即可进入该供应商的专属配置表单：
+
+| 供应商 | 能力 | 配置要点 |
+|---|---|---|
+| exa | search + extract | 云端 API，需 API Key（可配置多个自动轮换） |
+| tavily | search + extract | 云端 API，需 API Key |
+| ddg（DuckDuckGo） | search | 免 Key，启用即可 |
+| searxng | search | 自建实例，需填写 base_url |
+| jina | extract | 免 Key（可选 Key 提升免费配额） |
+| trafilatura | extract | 免 Key，内置本地提取 |
+
+各供应商的配置表单由类型 schema 驱动（字段按需显示），保存后可在页面执行「连接测试」验证；所有 Key 以掩码显示、绝不回显。
+
+## 功能接入
+
+| 方式 | 说明 | 入口 |
+|---|---|---|
+| REST API | `/v1/search` / `/v1/extract` 等，Bearer Token 鉴权 | 管理后台「调用方 Token」页创建 |
+| MCP | streamable-http（`/mcp`）与 stdio 两种传输，工具 `web_search` / `web_extract` | 按各 MCP 客户端配置 |
+| hermes 插件 | hermes-agent 原生后端，顶替内置 web_search / web_extract | `integrations/hermes/` |
+| dsh 插件 | DeepSeek Harness web seam（search + fetch） | `integrations/dsh/` |
+| Agent Skill | opencode / Claude Code / Codex 等技能目录 | `integrations/skill/` |
+| 工具安装包 | 自定义 harness 的 function-calling 定义及主流 agent 安装片段 | `integrations/tools/` |
