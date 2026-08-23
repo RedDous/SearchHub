@@ -127,22 +127,35 @@ function discardResult() {
 
 async function onCopy() {
   if (!created.value) return
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(created.value.token)
-    } else {
+  const token = created.value.token
+  let ok = false
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(token)
+      ok = true
+    } catch {
+      ok = false
+    }
+  }
+  if (!ok) {
+    try {
       const ta = document.createElement('textarea')
-      ta.value = created.value.token
+      ta.value = token
       ta.style.position = 'fixed'
       ta.style.opacity = '0'
       document.body.appendChild(ta)
+      ta.focus()
       ta.select()
-      document.execCommand('copy')
+      ok = document.execCommand('copy')
       document.body.removeChild(ta)
+    } catch {
+      ok = false
     }
+  }
+  if (ok) {
     message.success(t('tokens.copied'))
-  } catch {
-    message.error(t('common.failed'))
+  } else {
+    message.error(t('tokens.copyFailed'))
   }
 }
 
