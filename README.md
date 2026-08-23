@@ -41,15 +41,9 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 1. 首次登录默认账号 `admin / admin`（若在 `.env` 设置了 `ADMIN_PASSWORD` 则为该值），登录后系统会强制要求修改密码
 2. 登录后按管理后台引导完成配置：供应商、Key、调用方 Token 等
 
-**可选 sidecar**（自建 SearXNG 聚合搜索与 crawl4ai 网页提取副车，按需启用）：
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml --profile sidecars up -d
-```
-
-然后在管理后台添加供应商：searxng → base_url `http://searxng:8080`；crawl4ai → base_url `http://crawl4ai:11235`。
-
 **数据与备份**：全部数据位于 `./data/`（config.yaml、secrets.env、history.db、cache.db、session_secret）。备份 = 拷贝整个目录；恢复 = 拷贝回去后重启服务。
+
+**自建外部供应商（可选）**：searxng / crawl4ai 等本地服务不属于 SearchHub 部署范围，请按各自官方文档自行部署，然后在管理后台添加供应商并用 base_url 接入（如 searxng → `http://<host>:8080`）。
 
 **说明**：
 

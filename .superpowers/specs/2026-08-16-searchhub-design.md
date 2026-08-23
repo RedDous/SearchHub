@@ -68,7 +68,7 @@ Adapter 采用能力声明模型（与 hermes `supports_search/supports_extract`
 | jina reader | extract | 云免费（r.jina.ai） | 可选 | ✅ |
 | trafilatura | extract | 本地库（随包自带） | 免 key | ✅ |
 | firecrawl | extract | 云/自建 | 需要 | 二期 |
-| crawl4ai | extract | 本地 sidecar（crawl4ai-server） | 免 key | 二期 |
+| crawl4ai | extract | 本地自建（crawl4ai-server） | 免 key | 二期 |
 | brave / serper / bing / Google CSE | search | 云 API | 需要 | 二期 |
 
 双能力供应商的 Key 池对两个能力共享。
@@ -251,7 +251,7 @@ TAVILY_KEY_1=...
 ### 部署
 
 - 多阶段 Dockerfile：前端构建（node）→ Python 运行镜像（slim），单容器
-- `docker-compose.yml`：服务 + `/data` 卷（config.yaml、secrets.env、SQLite）+ 可选 `profiles: [sidecars]` 一键拉起 searxng / crawl4ai-server
+- `docker-compose.yml`：服务 + `/data` 卷（config.yaml、secrets.env、SQLite）；searxng / crawl4ai 等外部服务由用户自行部署，经 base_url 接入
 - 环境变量覆盖：`ADMIN_PASSWORD`（首次启动设密码）、`PORT`、`PUBLIC_BASE_URL`
 
 ### 测试
@@ -268,7 +268,7 @@ TAVILY_KEY_1=...
 | M1 核心引擎 + REST | 供应商注册表、Key 池、三种策略、缓存、REST API、config/secrets 服务、单元+集成测试 |
 | M2 管理面 | 管理 API + UI（供应商/Key/策略/Token/统计/日志/历史/设置/i18n/主题） |
 | M3 MCP | streamable-http 挂载 + stdio CLI |
-| M4 打包与消费方 | Docker/compose/sidecar profiles、hermes 插件、dsh 插件、skill、agent tool 安装包、文档 |
+| M4 打包与消费方 | Docker/compose（拉镜像+源码双模式）、hermes 插件、dsh 插件、skill、agent tool 安装包、文档 |
 
 二期后置：firecrawl/crawl4ai adapter、brave/serper 等更多供应商、入站限流细化、密钥加密落盘（默认关）。
 

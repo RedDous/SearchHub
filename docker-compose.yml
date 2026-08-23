@@ -10,23 +10,3 @@ services:
       SEARCHHUB_DATA: /data
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
     restart: unless-stopped
-
-  searxng:
-    image: searxng/searxng:latest
-    container_name: searchhub-searxng
-    profiles: ["sidecars"]
-    ports:
-      - "8080:8080"
-    environment:
-      # 仅影响 searxng 自身 UI 显示的链接地址；SearchHub 后端经 compose 网络用 http://searxng:8080 访问，不受此值影响
-      SEARXNG_BASE_URL: http://<NAS-IP>:8080/
-      SEARXNG_SECRET: ${SEARXNG_SECRET:-please_change_me}
-    restart: unless-stopped
-
-  crawl4ai:
-    image: unclecode/crawl4ai:latest
-    container_name: searchhub-crawl4ai
-    profiles: ["sidecars"]
-    ports:
-      - "11235:11235"
-    restart: unless-stopped

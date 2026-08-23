@@ -34,20 +34,12 @@ def test_build_override_file(compose: dict):
     assert svc["image"] == "searchhub:local"
 
 
-def test_sidecar_profiles(compose: dict):
-    assert compose["services"]["searxng"]["profiles"] == ["sidecars"]
-    assert compose["services"]["crawl4ai"]["profiles"] == ["sidecars"]
-    assert "8080:8080" in compose["services"]["searxng"]["ports"]
-    assert "11235:11235" in compose["services"]["crawl4ai"]["ports"]
-
-
-def test_sidecars_are_opt_in(compose: dict):
-    # 默认 up 不应拉起 sidecar：它们必须都在 profile 里
-    for name in ("searxng", "crawl4ai"):
-        assert compose["services"][name].get("profiles"), f"{name} missing profiles"
+def test_only_searchhub_service(compose: dict):
+    # 外部供应商（searxng/crawl4ai 等）由用户自行部署，SearchHub 不代为管理
+    assert set(compose["services"]) == {"searchhub"}
 
 
 def test_env_example_exists_and_has_required_keys():
     env = (ROOT / ".env.example").read_text()
     assert "ADMIN_PASSWORD=" in env
-    assert "SEARXNG_SECRET=" in env
+    assert "SEARXNG_SECRET" not in env
