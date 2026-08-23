@@ -35,12 +35,19 @@ const configStatus = ref<Record<string, ProviderStatus>>({})
 
 const rows = computed<Row[]>(() => {
   const cfg = new Map(providers.value.map((p) => [p.id, p]))
-  return typesStore.types.map((entry) => {
+  const list = typesStore.types.map((entry) => {
     const p = cfg.get(entry.type)
     return p
       ? { ...p, configured: true as const, name: entry.name }
       : { id: entry.type, name: entry.name, capabilities: entry.capabilities, configured: false as const }
   })
+  const catalogIds = new Set(typesStore.types.map((e) => e.type))
+  for (const p of providers.value) {
+    if (!catalogIds.has(p.id)) {
+      list.push({ ...p, configured: true as const, name: p.id })
+    }
+  }
+  return list
 })
 
 const statusTag = computed(() => (id: string, configured: boolean) => {

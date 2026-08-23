@@ -169,6 +169,7 @@ async def _auto_retest(engine, provider_id: str):
         engine.provider_tests.pop(provider_id, None)
         return
     if cls is None:
+        engine.provider_tests.pop(provider_id, None)
         return
     keys = svc.provider_keys(provider_id)
     cap = "search" if "search" in pc.capabilities else "extract"
