@@ -5,60 +5,109 @@ MCP（Model Context Protocol）接入，让 AI 客户端（opencode / claude / c
 - `web_search(query, limit?, providers?, strategy?)`：网页搜索
 - `web_extract(urls, format?, max_chars?)`：网页内容提取
 
-支持两种传输：
+支持两种传输，**各 AI agent 的配置格式不同**，请按你的客户端选对应小节：
 
-## streamable-http（经主服务挂载于 `/mcp`，推荐远端使用）
+## opencode
 
-随主服务一起启动，无需额外进程。需要调用方 Token（管理后台「调用方 Token」页创建）：
+远程（推荐，指向 NAS 上的服务）：
+
+```json
+// opencode.json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "searchhub": {
+      "type": "remote",
+      "url": "http://<host>:8000/mcp",
+      "enabled": true,
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
+```
+
+本地（stdio，本机运行）：
+
+```json
+// opencode.json
+{
+  "mcp": {
+    "searchhub": {
+      "type": "local",
+      "command": ["python", "-m", "searchhub.mcp"],
+      "enabled": true,
+      "environment": { "SEARCHHUB_DATA": "/path/to/searchhub/data" }
+    }
+  }
+}
+```
+
+## Claude Code
+
+```bash
+claude mcp add searchhub --transport http http://<host>:8000/mcp --header "Authorization: Bearer <token>"
+```
+
+或写入 `.mcp.json`（项目级，`mcpServers` 字段）：
 
 ```json
 {
   "mcpServers": {
     "searchhub": {
       "url": "http://<host>:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer <token>"
-      }
+      "headers": { "Authorization": "Bearer <token>" }
     }
   }
 }
 ```
 
-## stdio（本地 CLI，本机直接运行）
+## Cursor
 
-无需 Token，直接运行主服务所在环境的 MCP 服务：
-
-```bash
-SEARCHHUB_DATA=/path/to/searchhub/data python -m searchhub.mcp
-```
-
-MCP 客户端配置示例：
+Settings → MCP → 添加，或 `.cursor/mcp.json`（与 Claude 同款 `mcpServers` 结构）：
 
 ```json
 {
   "mcpServers": {
     "searchhub": {
-      "command": "python",
-      "args": ["-m", "searchhub.mcp"],
-      "env": {
-        "SEARCHHUB_DATA": "/path/to/searchhub/data"
-      }
+      "url": "http://<host>:8000/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
     }
   }
 }
 ```
 
-> Docker 部署时 stdio 模式在宿主机执行：`python -m searchhub.mcp` 需要宿主机有 Python 与 searchhub 包；否则请使用 streamable-http 方式指向 `http://<NAS-IP>:8000/mcp`。
+## Codex
 
-## 鉴权
+`~/.codex/config.toml`：
 
-streamable-http 通过 `Authorization: Bearer <token>` 请求头携带 Token（与 REST `/v1` 同一套调用方 Token）；token 缺失或无效返回 401。stdio 模式本地直连，无需 Token。
-
-## 验证
-
-```bash
-# stdio 冒烟：正常时会持续等待标准输入，3 秒后被 timeout 终止（exit=124）
-timeout 3 SEARCHHUB_DATA=/path/to/searchhub/data python -m searchhub.mcp; echo "exit=$?"
+```toml
+[mcp_servers.searchhub]
+command = "python"
+args = ["-m", "searchhub.mcp"]
+env = { SEARCHHUB_DATA = "/path/to/searchhub/data" }
 ```
 
-随后在任意 MCP 客户端（opencode / claude / cursor）中按上面的配置连接，调用 `web_search` / `web_extract` 即可。所有调用会记录在主服务的管理后台「历史查询」页。
+## Gemini CLI
+
+在设置中加入 `mcpServers`（与 Claude 同款结构）：
+
+```json
+{
+  "mcpServers": {
+    "searchhub": {
+      "url": "http://<host>:8000/mcp",
+      "headers": { "Authorization": "Bearer <token>" }
+    }
+  }
+}
+```
+
+## 鉴权与验证
+
+- 远程（http）方式需要调用方 Token（管理后台「调用方 Token」页创建），经 `Authorization: Bearer <token>` 携带；缺失或无效返回 401
+- 本地（stdio）方式本机直连，无需 Token
+- stdio 冒烟：`timeout 3 python -m searchhub.mcp; echo "exit=$?"`——正常等待输入、被 timeout 终止（exit=124）
+
+> Docker 部署时 stdio 模式在宿主机执行：需要宿主机有 Python 与 searchhub 包；否则用远程方式指向 `http://<NAS-IP>:8000/mcp`。
+
+所有调用会记录在管理后台「历史查询」页。
