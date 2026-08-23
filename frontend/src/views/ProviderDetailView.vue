@@ -7,9 +7,8 @@
                   :title="isNew && !entry ? t('providers.testUnsupported') : undefined" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
-        <n-tag v-if="lastTest" size="small" :type="lastTest.success ? 'success' : 'error'"
-               :title="lastTest.error ?? lastTestDetail">
-          {{ lastTest.success ? t('providers.testOkShort') : t('providers.testFailShort') }}
+        <n-tag v-if="lastStatus" size="small" :type="badgeType" :title="badgeTitle">
+          {{ badgeText }}
         </n-tag>
         <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
         <n-button type="primary" :loading="saving" @click="onSave">
@@ -87,7 +86,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useDialog, useMessage } from 'naive-ui'
 import { useRouter } from 'vue-router'
-import { adminApi, type KeyEntry, type ProviderCfg, type ProviderTest } from '@/api/admin'
+import { adminApi, type KeyEntry, type ProviderCfg, type ProviderStatus } from '@/api/admin'
 import { ApiError } from '@/api/client'
 import { useProviderTypesStore } from '@/stores/providerTypes'
 import { t } from '@/i18n'
@@ -108,7 +107,7 @@ const keyId = computed(() => (isNew.value ? props.type ?? '' : props.id))
 const loading = ref(false)
 const saving = ref(false)
 const testing = ref(false)
-const lastTest = ref<ProviderTest | null>(null)
+const lastStatus = ref<ProviderStatus | null>(null)
 const addingKey = ref(false)
 const keys = ref<KeyEntry[]>([])
 const newKey = ref('')
@@ -160,9 +159,9 @@ async function load() {
     form.base_url = p.base_url ?? ''
     form.key_pool = { ...p.key_pool }
     form.options = Object.keys(p.options ?? {}).length ? JSON.stringify(p.options, null, 2) : ''
-    const cfgTests = cfg.provider_tests
-    if (props.id in cfgTests) {
-      lastTest.value = { ...cfgTests[props.id] }
+    const st = cfg.provider_status[props.id]
+    if (st) {
+      lastStatus.value = st
     }
   } catch (e) {
     message.error(e instanceof Error ? e.message : t('common.failed'))
@@ -273,21 +272,30 @@ async function onTest() {
     const r = isNew.value
       ? await adminApi.testProviderConfig(buildPayload())
       : await adminApi.testProvider(props.id)
-    lastTest.value = { ...r, success: true, at: Date.now() / 1000 }
+    lastStatus.value = { status: 'ok', test: { ...r, success: true, at: Date.now() / 1000 } }
     message.success(t('providers.testOk') + `: ${r.capability} × ${r.count} (${r.took_ms}ms)`)
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e)
-    lastTest.value = { success: false, capability: '', count: 0, took_ms: 0, error: detail, at: Date.now() / 1000 }
+    lastStatus.value = { status: 'failed', test: { success: false, error: detail, at: Date.now() / 1000 } }
     message.error(t('providers.testFail') + ': ' + detail + (isNew.value ? t('providers.testDraftHint') : ''))
   } finally {
     testing.value = false
   }
 }
 
-const lastTestDetail = computed(() =>
-  lastTest.value
-    ? `${lastTest.value.capability} × ${lastTest.value.count} (${lastTest.value.took_ms}ms)`
-    : '')
+const badgeMap: Record<string, { type: string; text: string; title: () => string }> = {
+  ok: { type: 'success', text: t('providers.testOkShort'), title: () => {
+    const x = lastStatus.value?.test
+    return x ? `${x.capability} × ${x.count} (${x.took_ms}ms)` : ''
+  } },
+  failed: { type: 'error', text: t('providers.testFailShort'), title: () => lastStatus.value?.test?.error ?? '' },
+  untested: { type: 'default', text: t('providers.testNever'), title: () => '' },
+  missing_key: { type: 'error', text: t('providers.missingKey'), title: () => '' },
+  missing_base_url: { type: 'error', text: t('providers.missingBaseUrl'), title: () => '' },
+}
+const badgeType = computed(() => badgeMap[lastStatus.value?.status ?? '']?.type ?? 'default')
+const badgeText = computed(() => badgeMap[lastStatus.value?.status ?? '']?.text ?? '')
+const badgeTitle = computed(() => badgeMap[lastStatus.value?.status ?? '']?.title() ?? '')
 
 function onCancel() {
   router.replace({ name: 'providers' })

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from searchhub.api.admin.session import require_admin
 from searchhub.providers import PROVIDER_CLASSES
+from searchhub.api.admin import config_routes
 
 router = APIRouter(prefix="/api/admin", tags=["admin"],
                    dependencies=[Depends(require_admin)])
@@ -54,7 +55,7 @@ async def list_keys(provider_id: str, request: Request):
 
 
 @router.post("/providers/{provider_id}/keys")
-async def add_key(provider_id: str, body: KeyBody, request: Request):
+async def add_key(provider_id: str, body: KeyBody, request: Request, background: BackgroundTasks):
     svc = request.app.state.engine.config
     key = body.key.strip()
     error = _validate_key_for_provider(provider_id, key)
@@ -64,14 +65,16 @@ async def add_key(provider_id: str, body: KeyBody, request: Request):
         svc.add_provider_key(provider_id, key)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    background.add_task(config_routes._auto_retest, request.app.state.engine, provider_id)
     return {"success": True}
 
 
 @router.delete("/providers/{provider_id}/keys/{index}")
-async def remove_key(provider_id: str, index: int, request: Request):
+async def remove_key(provider_id: str, index: int, request: Request, background: BackgroundTasks):
     svc = request.app.state.engine.config
     try:
         svc.remove_provider_key(provider_id, index)
     except IndexError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    background.add_task(config_routes._auto_retest, request.app.state.engine, provider_id)
     return {"success": True}

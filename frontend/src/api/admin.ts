@@ -43,6 +43,13 @@ export interface ProviderTest {
   at: number
 }
 
+export type ProviderStatusKind = 'ok' | 'failed' | 'untested' | 'missing_key' | 'missing_base_url'
+
+export interface ProviderStatus {
+  status: ProviderStatusKind
+  test: ProviderTest | null
+}
+
 export interface AppConfigView {
   config: {
     strategy: { default_mode: string; timeout_s: number }
@@ -57,7 +64,7 @@ export interface AppConfigView {
   password_is_default: boolean
   version: string
   commit: string
-  provider_tests: Record<string, ProviderTest>
+  provider_status: Record<string, ProviderStatus>
 }
 export interface KeyEntry { index: number; masked: string; status: { key: string; cooling_until: number; in_flight: number; ok: boolean } | null }
 export interface HistoryRow { id: number; ts: number; capability: string; query: string; params: string; providers: string; cache_hit: number; took_ms: number; result_count: number; success: number; error: string; token_name: string; response_preview: string }

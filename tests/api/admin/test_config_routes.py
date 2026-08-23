@@ -224,6 +224,11 @@ def test_provider_tests_recorded_after_draft_test(admin_client):
     from searchhub.models import SearchItem
     from searchhub.providers.ddg import DdgProvider
 
+    body = {"id": "ddg", "capabilities": ["search"], "enabled": True,
+            "weight": 10, "priority": 100, "max_results": 8, "base_url": None,
+            "key_pool": {"max_concurrency": 2, "rps_limit": 10, "cooldown_s": 60},
+            "options": {}}
+    assert admin_client.post("/api/admin/providers", json=body).status_code == 200
     original = DdgProvider.search
 
     async def fake_search(self, query, limit):
@@ -231,16 +236,97 @@ def test_provider_tests_recorded_after_draft_test(admin_client):
 
     DdgProvider.search = fake_search
     try:
-        admin_client.post("/api/admin/providers/test",
-                          json={"id": "ddg", "capabilities": ["search"],
-                                "enabled": True, "weight": 10, "priority": 100,
-                                "max_results": 8, "base_url": None,
-                                "key_pool": {"max_concurrency": 2, "rps_limit": 10,
-                                             "cooldown_s": 60}, "options": {}})
+        assert admin_client.post("/api/admin/providers/test", json=body).status_code == 200
     finally:
         DdgProvider.search = original
     data = admin_client.get("/api/admin/config").json()["data"]
-    test = data["provider_tests"]["ddg"]
-    assert test["success"] is True
-    assert test["capability"] == "search"
-    assert test["count"] == 1
+    st = data["provider_status"]["ddg"]
+    assert st["status"] == "ok"
+    assert st["test"]["capability"] == "search"
+    assert st["test"]["count"] == 1
+
+
+def test_provider_status_missing_key_and_base_url(admin_client, data_dir):
+    from searchhub.models import SearchItem
+    from searchhub.providers.ddg import DdgProvider
+    from searchhub.providers.tavily import TavilyProvider
+
+    body = {"id": "ddg", "capabilities": ["search"], "enabled": True,
+            "weight": 10, "priority": 100, "max_results": 8, "base_url": None,
+            "key_pool": {"max_concurrency": 2, "rps_limit": 10, "cooldown_s": 60},
+            "options": {}}
+    assert admin_client.post("/api/admin/providers", json=body).status_code == 200
+    # ddg 无 key 需求 → 测过则 ok
+    original = DdgProvider.search
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider="ddg")]
+
+    DdgProvider.search = fake_search
+    try:
+        admin_client.post("/api/admin/providers/test", json=body)
+    finally:
+        DdgProvider.search = original
+    data = admin_client.get("/api/admin/config").json()["data"]
+    assert data["provider_status"]["ddg"]["status"] == "ok"
+    # tavily 需 key 且未配置 → missing_key（未配置的都不算）
+    assert "tavily" not in data["provider_status"]
+    # searxng 需 base_url 且未填 → missing_base_url（保存后把配置里的 base_url 清掉模拟）
+    from searchhub.config import ConfigService
+    from searchhub.providers.schema import validate_provider_config
+    from searchhub.providers.searxng import SearxngProvider
+
+    searxng = {"id": "searxng", "capabilities": ["search"], "enabled": True,
+               "weight": 10, "priority": 100, "max_results": 8, "base_url": None,
+               "key_pool": {"max_concurrency": 2, "rps_limit": 10, "cooldown_s": 60},
+               "options": {}}
+    r = admin_client.post("/api/admin/providers", json=searxng)
+    assert r.status_code == 400  # 未填 base_url 无法保存
+    searxng["base_url"] = "https://searx.example"
+    assert admin_client.post("/api/admin/providers", json=searxng).status_code == 200
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    p = next(x for x in cfg.providers if x.id == "searxng")
+    p.base_url = None
+    cs.save_config(cfg)
+    data = admin_client.get("/api/admin/config").json()["data"]
+    assert data["provider_status"]["searxng"]["status"] == "missing_base_url"
+    assert data["provider_status"]["searxng"]["test"] is None
+
+
+def test_auto_retest_after_key_add(admin_client):
+    from searchhub.models import SearchItem
+    from searchhub.providers.tavily import TavilyProvider
+
+    # tavily 需 key：先创建（无 key，不联网），加 key 触发后台自动重测（真实 _auto_retest）
+    from searchhub.api.admin import config_routes as cr
+
+    body = {"id": "tavily", "capabilities": ["search"], "enabled": True,
+            "weight": 10, "priority": 100, "max_results": 8, "base_url": None,
+            "key_pool": {"max_concurrency": 2, "rps_limit": 10, "cooldown_s": 60},
+            "options": {}}
+    assert admin_client.post("/api/admin/providers", json=body).status_code == 200
+    original = TavilyProvider.search
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider="tavily")]
+
+    TavilyProvider.search = fake_search
+    cr._auto_retest = lambda *a, **k: None  # 先屏蔽
+    try:
+        # 无 key：加 key 前状态为 missing_key
+        data = admin_client.get("/api/admin/config").json()["data"]
+        assert data["provider_status"]["tavily"]["status"] == "missing_key"
+        # 恢复真实自动重测后加 key → 触发探测
+        cr._auto_retest = cr._REAL_AUTO_RETEST
+        r = admin_client.post("/api/admin/providers/tavily/keys",
+                              json={"key": "tvly-abc123"})
+        assert r.status_code == 200
+    finally:
+        TavilyProvider.search = original
+        cr._auto_retest = cr._REAL_AUTO_RETEST
+    data = admin_client.get("/api/admin/config").json()["data"]
+    st = data["provider_status"]["tavily"]
+    assert st["status"] == "ok"
+    assert st["test"]["capability"] == "search"

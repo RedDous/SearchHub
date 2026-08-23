@@ -37,3 +37,13 @@ def admin_client(data_dir):
         r = c.post("/api/admin/login", json={"username": "admin", "password": "testpass123"})
         assert r.status_code == 200, r.text
         yield c
+
+
+@pytest.fixture(autouse=True)
+def no_auto_retest(monkeypatch):
+    """默认屏蔽配置/Key 变更后的后台自动探测，避免测试触发真实网络请求。"""
+    from searchhub.api.admin import config_routes
+
+    if not hasattr(config_routes, "_REAL_AUTO_RETEST"):
+        config_routes._REAL_AUTO_RETEST = config_routes._auto_retest
+    monkeypatch.setattr(config_routes, "_auto_retest", lambda *a, **k: None)
