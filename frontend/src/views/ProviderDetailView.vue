@@ -2,14 +2,14 @@
   <div>
     <div class="detail-head">
       <h1 class="page-title">{{ isNew ? (entry?.name ?? t('providers.new')) : form.id }}</h1>
+      <n-tag v-if="lastStatus" size="small" :type="badgeType" :title="badgeTitle">
+        {{ badgeText }}
+      </n-tag>
       <n-space>
         <n-button :loading="testing" :disabled="isNew && !entry"
                   :title="isNew && !entry ? t('providers.testUnsupported') : undefined" @click="onTest">
           {{ testing ? t('providers.testing') : t('providers.test') }}
         </n-button>
-        <n-tag v-if="lastStatus" size="small" :type="badgeType" :title="badgeTitle">
-          {{ badgeText }}
-        </n-tag>
         <n-button @click="onCancel">{{ t('common.cancel') }}</n-button>
         <n-button type="primary" :loading="saving" @click="onSave">
           {{ t('providers.save') }}
@@ -365,7 +365,13 @@ watch(() => entry.value, (e, prev) => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
   margin-bottom: 16px;
+}
+.page-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
 }
 .page-title {
   margin: 0;
