@@ -14,6 +14,7 @@ class ProviderSchema:
     optional_key: bool = False
     requires_base_url: bool = False
     key_pool_params: KeyPoolParams = "none"
+    key_prefix: str | None = None
     show_max_results: bool = False
     show_options: bool = False
 

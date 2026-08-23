@@ -10,7 +10,8 @@ class TavilyProvider(Provider):
     capabilities = frozenset({"search", "extract"})
     REQUIRES_KEY = True
     schema = ProviderSchema(type="tavily", name="Tavily", capabilities=("search", "extract"),
-                            requires_key=True, key_pool_params="full", show_max_results=True)
+                            requires_key=True, key_pool_params="full", show_max_results=True,
+                            key_prefix="tvly-")
     SEARCH_URL = "https://api.tavily.com/search"
     EXTRACT_URL = "https://api.tavily.com/extract"
 

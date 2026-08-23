@@ -235,11 +235,12 @@ async function onSave() {
     }
     if (isNew.value) {
       await adminApi.createProvider(cfg)
-    } else {
-      await adminApi.updateProvider(form.id, cfg)
+      message.success(t('common.success'))
+      router.push({ name: 'providers' })
+      return
     }
+    await adminApi.updateProvider(form.id, cfg)
     message.success(t('common.success'))
-    if (isNew.value) router.replace(`/providers/${cfg.id}`)
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) {
       message.error(t('providers.providerExists'))

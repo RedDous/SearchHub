@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from searchhub.api.admin.session import require_admin
+from searchhub.providers import PROVIDER_CLASSES
 
 router = APIRouter(prefix="/api/admin", tags=["admin"],
                    dependencies=[Depends(require_admin)])
@@ -19,6 +20,21 @@ def _mask(key: str) -> str:
     if len(key) >= 4:
         return key[:2] + "****" + key[-2:]
     return "****"
+
+
+def _validate_key_for_provider(provider_id: str, key: str) -> str | None:
+    """返回错误信息（None = 通过）。校验目标供应商自身前缀与跨供应商误贴。"""
+    for pid, cls in PROVIDER_CLASSES.items():
+        prefix = cls.schema.key_prefix
+        if not prefix or not key.startswith(prefix):
+            continue
+        if pid != provider_id:
+            return f"该 Key 以 {prefix!r} 开头，疑似 {pid} 的 Key，请确认是否添加错供应商"
+        return None
+    cls = PROVIDER_CLASSES.get(provider_id)
+    if cls is not None and cls.schema.key_prefix:
+        return f"该 Key 格式与 {provider_id} 不符（应以 {cls.schema.key_prefix!r} 开头）"
+    return None
 
 
 @router.get("/providers/{provider_id}/keys")
@@ -40,6 +56,9 @@ async def list_keys(provider_id: str, request: Request):
 @router.post("/providers/{provider_id}/keys")
 async def add_key(provider_id: str, body: KeyBody, request: Request):
     svc = request.app.state.engine.config
+    error = _validate_key_for_provider(provider_id, body.key)
+    if error:
+        raise HTTPException(status_code=400, detail=error)
     try:
         svc.add_provider_key(provider_id, body.key)
     except ValueError as e:

@@ -91,3 +91,28 @@ def test_revoked_token_rejected(admin_client, data_dir):
     resp = admin_client.get("/v1/search", params={"q": "x"},
                             headers={"Authorization": f"Bearer {raw}"})
     assert resp.status_code == 401
+
+
+def test_add_wrong_provider_key_rejected(admin_client):
+    # tvly- 前缀的 key 加到 exa → 400 提示疑似贴错
+    r = admin_client.post("/api/admin/providers/exa/keys", json={"key": "tvly-abc123"})
+    assert r.status_code == 400
+    assert "tavily" in r.json()["error"]
+
+
+def test_add_tavily_key_to_tavily_ok(admin_client):
+    r = admin_client.post("/api/admin/providers/tavily/keys", json={"key": "tvly-abc123"})
+    assert r.status_code == 200
+
+
+def test_add_wrong_format_key_to_prefix_provider_rejected(admin_client):
+    # tavily 自身前缀不匹配 → 400
+    r = admin_client.post("/api/admin/providers/tavily/keys", json={"key": "abc123"})
+    assert r.status_code == 400
+    assert "tvly-" in r.json()["error"]
+
+
+def test_add_key_to_prefixless_provider_lenient(admin_client):
+    # exa/ddg 无前缀约束，任意 key 可加
+    r = admin_client.post("/api/admin/providers/exa/keys", json={"key": "some-random-key-1"})
+    assert r.status_code == 200
