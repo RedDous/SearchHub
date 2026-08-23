@@ -76,4 +76,16 @@ describe('SearchHubFetchProvider', () => {
     ] }), { status: 200 })) as unknown as typeof fetch
     await expect(new SearchHubFetchProvider(opts).fetch({ url: 'https://a.com' })).rejects.toThrow(WebError)
   })
+
+  it('throws WebError on non-JSON error body', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response('gateway error', { status: 502 })) as unknown as typeof fetch
+    await expect(new SearchHubFetchProvider(opts).fetch({ url: 'https://a.com' })).rejects.toThrow(WebError)
+  })
+
+  it('throws WebError when extract returns no result for url', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ success: true, data: [
+      { url: 'https://other.com', content: 'x' },
+    ] }), { status: 200 })) as unknown as typeof fetch
+    await expect(new SearchHubFetchProvider(opts).fetch({ url: 'https://a.com' })).rejects.toThrow('returned no result')
+  })
 })

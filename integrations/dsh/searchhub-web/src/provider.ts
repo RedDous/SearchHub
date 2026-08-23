@@ -90,6 +90,7 @@ export class SearchHubFetchProvider implements WebFetchProvider {
     const options = this.resolveOptions()
     const token = await requireToken(options)
     let resp: Response
+    let body: unknown
     try {
       resp = await fetch(new URL('/v1/extract', options.baseURL), {
         method: 'POST',
@@ -97,14 +98,16 @@ export class SearchHubFetchProvider implements WebFetchProvider {
         body: JSON.stringify({ urls: [request.url], format: 'markdown' }),
         signal,
       })
+      body = await resp.json()
     } catch (err) {
+      if (err instanceof WebError) throw err
       throw new WebError(`SearchHub fetch failed: ${(err as Error).message ?? String(err)}`, 'WEB_PROVIDER_ERROR')
     }
-    const body = (await resp.json()) as { success?: boolean; data?: Array<Record<string, unknown>>; error?: string }
-    if (!resp.ok || body.success === false) {
-      throw new WebError(body.error ?? `SearchHub extract http ${resp.status}`, 'WEB_PROVIDER_ERROR')
+    const payload = body as { success?: boolean; data?: Array<Record<string, unknown>>; error?: string }
+    if (!resp.ok || payload.success === false) {
+      throw new WebError(payload.error ?? `SearchHub extract http ${resp.status}`, 'WEB_PROVIDER_ERROR')
     }
-    const item = (body.data ?? []).find((it) => it.url === request.url)
+    const item = (payload.data ?? []).find((it) => it.url === request.url)
     if (!item) {
       throw new WebError(`SearchHub extract returned no result for ${request.url}`, 'WEB_PROVIDER_ERROR')
     }
