@@ -313,6 +313,9 @@ onMounted(load)
 .filter-card {
   margin-bottom: 16px;
 }
+</style>
+
+<style>
 .detail {
   padding: 12px 16px 4px;
 }
