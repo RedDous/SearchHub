@@ -64,6 +64,12 @@ const capabilityOptions = computed(() => [
 const fullMap = ref<Record<number, HistoryFullEntry[] | null>>({})
 const fullLoading = ref<Record<number, boolean>>({})
 const expandedFull = ref<Record<number, boolean>>({})
+const itemOpen = ref<Record<string, boolean>>({})
+
+function toggleItem(id: number, i: number) {
+  const key = `${id}:${i}`
+  itemOpen.value[key] = !itemOpen.value[key]
+}
 
 async function toggleFull(row: HistoryRow) {
   const id = row.id
@@ -119,6 +125,34 @@ const HistoryExpand = defineComponent({
         : open
           ? t('history.collapseFull')
           : t('history.expandFull')
+      const title = open ? t('history.fullResponse') : t('history.preview')
+      const renderItem = (it: HistoryFullEntry, i: number) => {
+        const isSearch = row.capability === 'search'
+        const openKey = `${id}:${i}`
+        const opened = !!itemOpen.value[openKey]
+        const head = isSearch
+          ? h('a', { class: 'full-item-head-text', href: it.url, target: '_blank', rel: 'noopener' }, `${i + 1}. ${it.title ?? it.url}`)
+          : h('span', { class: 'full-item-head-text' }, it.url)
+        const body = isSearch
+          ? [
+              h('div', { class: 'full-item-url' }, it.url),
+              it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
+            ]
+          : [
+              it.title ? h('div', { class: 'full-item-desc' }, it.title) : null,
+              it.error
+                ? h('div', { class: 'full-item-desc full-item-error-text' }, it.error)
+                : h('pre', { class: 'full-item-content' }, it.content ?? ''),
+            ]
+        if (it.provider) body.push(h('span', { class: 'full-item-provider' }, it.provider))
+        return h('div', { class: ['full-item', { 'full-item-error': !!it.error }] }, [
+          h('div', { class: 'full-item-head', onClick: () => toggleItem(id, i) }, [
+            head,
+            h('span', { class: ['caret', { open: opened }] }, '▸'),
+          ]),
+          opened ? h('div', { class: 'full-item-body' }, body) : null,
+        ])
+      }
       blocks.push(
         h('div', { class: 'detail-block' }, [
           h(
@@ -128,47 +162,24 @@ const HistoryExpand = defineComponent({
               onClick: row.has_full ? () => toggleFull(row) : undefined,
             },
             [
-              h('span', { class: ['caret', { open }] }, '▸'),
-              ' ' + t('history.preview'),
+              h('span', {}, title),
               row.has_full ? h('span', { class: 'detail-title-hint' }, hint) : null,
+              row.has_full ? h('span', { class: ['caret', { open }] }, '▸') : null,
             ],
           ),
-          h('div', { class: 'detail-content' }, [
-            h(NCode, { code: row.response_preview, wordWrap: true }),
-          ]),
-          h('div', { class: ['full-collapse', { open }] }, [
-            h('div', { class: 'full-collapse-inner' }, [
-              open && entries
-                ? (() => {
-                    const isSearch = row.capability === 'search'
-                    const items = entries.map((it, i) =>
-                      isSearch
-                        ? h('div', { class: 'full-item' }, [
-                            h('a', { class: 'full-item-title', href: it.url, target: '_blank', rel: 'noopener' }, `${i + 1}. ${it.title ?? it.url}`),
-                            h('div', { class: 'full-item-url' }, it.url),
-                            it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
-                            it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
-                          ])
-                        : it.error
-                          ? h('div', { class: 'full-item full-item-error' }, [
-                              h('div', { class: 'full-item-title' }, it.url),
-                              h('div', { class: 'full-item-desc' }, it.error),
-                            ])
-                          : h('div', { class: 'full-item' }, [
-                              h('div', { class: 'full-item-title' }, it.url),
-                              it.title ? h('div', { class: 'full-item-desc' }, it.title) : null,
-                              h('pre', { class: 'full-item-content' }, it.content ?? ''),
-                              it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
-                            ]),
-                    )
-                    return h('div', { class: 'detail-block full-block' }, [
-                      h('div', { class: 'detail-title' }, t('history.fullResponse')),
-                      h('div', { class: 'detail-content' }, [h('div', { class: 'full-list' }, items)]),
-                    ])
-                  })()
-                : null,
-            ]),
-          ]),
+          open
+            ? loading
+              ? h('div', { class: 'detail-content' }, [h('span', { class: 'loading-text' }, t('history.loadingFull'))])
+              : h('div', { class: ['full-collapse', { open: true }] }, [
+                  h('div', { class: 'full-collapse-inner' }, [
+                    h('div', { class: 'detail-block full-block' }, [
+                      h('div', { class: 'full-list' }, (entries ?? []).map(renderItem)),
+                    ]),
+                  ]),
+                ])
+            : h('div', { class: 'detail-content' }, [
+                h(NCode, { code: row.response_preview, wordWrap: true }),
+              ]),
         ]),
       )
       return h('div', { class: 'detail' }, blocks)
@@ -383,8 +394,10 @@ onMounted(load)
   border-radius: 6px;
   background: var(--n-color-2, #fafafa);
   padding: 8px 12px;
-  max-height: 280px;
-  overflow: auto;
+}
+.loading-text {
+  font-size: 12px;
+  color: var(--n-text-color-3, #999);
 }
 .detail-error {
   margin: 0;
@@ -399,7 +412,6 @@ onMounted(load)
   gap: 10px;
 }
 .full-item {
-  padding: 8px 10px;
   border: 1px solid var(--n-border-color, #e0e0e6);
   border-radius: 6px;
 }
@@ -407,15 +419,32 @@ onMounted(load)
   border-color: #f0c9c9;
   background: #fdf3f3;
 }
-.full-item-title {
+.full-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.full-item-head .caret {
+  margin-left: auto;
+}
+.full-item-head:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+.full-item-head-text {
   font-size: 13px;
   font-weight: 600;
   color: var(--n-text-color-1, #1f1f1f);
   text-decoration: none;
   word-break: break-all;
 }
-.full-item-title:hover {
+a.full-item-head-text:hover {
   text-decoration: underline;
+}
+.full-item-body {
+  padding: 0 10px 10px 28px;
 }
 .full-item-url {
   font-size: 12px;
@@ -435,9 +464,10 @@ onMounted(load)
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 360px;
-  overflow: auto;
   color: var(--n-text-color-2, #333);
+}
+.full-item-error-text {
+  color: #d03050;
 }
 .full-item-provider {
   display: inline-block;
