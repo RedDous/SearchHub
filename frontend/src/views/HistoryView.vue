@@ -130,12 +130,14 @@ const HistoryExpand = defineComponent({
         const isSearch = row.capability === 'search'
         const openKey = `${id}:${i}`
         const opened = !!itemOpen.value[openKey]
-        const head = isSearch
-          ? h('a', { class: 'full-item-head-text', href: it.url, target: '_blank', rel: 'noopener' }, `${i + 1}. ${it.title ?? it.url}`)
-          : h('span', { class: 'full-item-head-text' }, it.url)
+        const head = h(
+          'span',
+          { class: 'full-item-head-text' },
+          isSearch ? `${i + 1}. ${it.title ?? it.url}` : it.url,
+        )
         const body = isSearch
           ? [
-              h('div', { class: 'full-item-url' }, it.url),
+              h('a', { class: 'full-item-url', href: it.url, target: '_blank', rel: 'noopener' }, it.url),
               it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
             ]
           : [
@@ -440,7 +442,14 @@ onMounted(load)
   text-decoration: none;
   word-break: break-all;
 }
-a.full-item-head-text:hover {
+.full-item-url {
+  font-size: 12px;
+  color: #2080f0;
+  word-break: break-all;
+  margin-top: 2px;
+  text-decoration: none;
+}
+.full-item-url:hover {
   text-decoration: underline;
 }
 .full-item-body {
