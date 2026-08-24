@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { useMessage, NButton, NCode, NEllipsis, NTag } from 'naive-ui'
+import { useMessage, NCode, NEllipsis, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import type { PropType } from 'vue'
 import { adminApi, type HistoryFullEntry, type HistoryRow } from '@/api/admin'
@@ -67,6 +67,7 @@ const expandedFull = ref<Record<number, boolean>>({})
 
 async function toggleFull(row: HistoryRow) {
   const id = row.id
+  if (fullLoading.value[id]) return
   if (expandedFull.value[id]) {
     expandedFull.value[id] = false
     return
@@ -113,52 +114,63 @@ const HistoryExpand = defineComponent({
           ]),
         )
       }
+      const hint = loading
+        ? t('history.loadingFull')
+        : open
+          ? t('history.collapseFull')
+          : t('history.expandFull')
       blocks.push(
         h('div', { class: 'detail-block' }, [
-          h('div', { class: 'detail-title' }, t('history.preview')),
+          h(
+            'div',
+            {
+              class: ['detail-title', { 'detail-title-clickable': !!row.has_full }],
+              onClick: row.has_full ? () => toggleFull(row) : undefined,
+            },
+            [
+              h('span', { class: ['caret', { open }] }, '▸'),
+              ' ' + t('history.preview'),
+              row.has_full ? h('span', { class: 'detail-title-hint' }, hint) : null,
+            ],
+          ),
           h('div', { class: 'detail-content' }, [
             h(NCode, { code: row.response_preview, wordWrap: true }),
           ]),
-          row.has_full
-            ? h('div', { class: 'detail-full-toggle' }, [
-                h(
-                  NButton,
-                  { size: 'tiny', type: 'primary', ghost: true, loading, onClick: () => toggleFull(row) },
-                  { default: () => (open ? t('history.collapseFull') : t('history.viewFull')) },
-                ),
-              ])
-            : null,
+          h('div', { class: ['full-collapse', { open }] }, [
+            h('div', { class: 'full-collapse-inner' }, [
+              open && entries
+                ? (() => {
+                    const isSearch = row.capability === 'search'
+                    const items = entries.map((it, i) =>
+                      isSearch
+                        ? h('div', { class: 'full-item' }, [
+                            h('a', { class: 'full-item-title', href: it.url, target: '_blank', rel: 'noopener' }, `${i + 1}. ${it.title ?? it.url}`),
+                            h('div', { class: 'full-item-url' }, it.url),
+                            it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
+                            it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
+                          ])
+                        : it.error
+                          ? h('div', { class: 'full-item full-item-error' }, [
+                              h('div', { class: 'full-item-title' }, it.url),
+                              h('div', { class: 'full-item-desc' }, it.error),
+                            ])
+                          : h('div', { class: 'full-item' }, [
+                              h('div', { class: 'full-item-title' }, it.url),
+                              it.title ? h('div', { class: 'full-item-desc' }, it.title) : null,
+                              h('pre', { class: 'full-item-content' }, it.content ?? ''),
+                              it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
+                            ]),
+                    )
+                    return h('div', { class: 'detail-block full-block' }, [
+                      h('div', { class: 'detail-title' }, t('history.fullResponse')),
+                      h('div', { class: 'detail-content' }, [h('div', { class: 'full-list' }, items)]),
+                    ])
+                  })()
+                : null,
+            ]),
+          ]),
         ]),
       )
-      if (open && entries) {
-        const isSearch = row.capability === 'search'
-        const items = entries.map((it, i) =>
-          isSearch
-            ? h('div', { class: 'full-item' }, [
-                h('a', { class: 'full-item-title', href: it.url, target: '_blank', rel: 'noopener' }, `${i + 1}. ${it.title ?? it.url}`),
-                h('div', { class: 'full-item-url' }, it.url),
-                it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
-                it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
-              ])
-            : it.error
-              ? h('div', { class: 'full-item full-item-error' }, [
-                  h('div', { class: 'full-item-title' }, it.url),
-                  h('div', { class: 'full-item-desc' }, it.error),
-                ])
-              : h('div', { class: 'full-item' }, [
-                  h('div', { class: 'full-item-title' }, it.url),
-                  it.title ? h('div', { class: 'full-item-desc' }, it.title) : null,
-                  h('pre', { class: 'full-item-content' }, it.content ?? ''),
-                  it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
-                ]),
-        )
-        blocks.push(
-          h('div', { class: 'detail-block' }, [
-            h('div', { class: 'detail-title' }, t('history.fullResponse')),
-            h('div', { class: 'detail-content' }, [h('div', { class: 'full-list' }, items)]),
-          ]),
-        )
-      }
       return h('div', { class: 'detail' }, blocks)
     }
   },
@@ -307,14 +319,61 @@ onMounted(load)
 .detail-block {
   margin-bottom: 16px;
 }
+.detail-block + .detail-block {
+  border-top: 1px dashed var(--n-border-color, #dcdce0);
+  padding-top: 14px;
+}
 .detail-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--n-text-color-2, #333);
-  margin-bottom: 6px;
+  color: var(--n-text-color-1, #1f1f1f);
+  border-left: 3px solid #2080f0;
+  padding-left: 8px;
+  margin-bottom: 8px;
 }
 .detail-title-error {
+  border-left-color: #d03050;
   color: #d03050;
+}
+.detail-title-clickable {
+  cursor: pointer;
+  user-select: none;
+}
+.detail-title-clickable:hover {
+  color: #2080f0;
+}
+.caret {
+  display: inline-block;
+  font-size: 11px;
+  color: #888;
+  transition: transform 0.25s ease;
+}
+.caret.open {
+  transform: rotate(90deg);
+}
+.detail-title-hint {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--n-text-color-3, #999);
+}
+.full-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s ease;
+}
+.full-collapse.open {
+  grid-template-rows: 1fr;
+}
+.full-collapse-inner {
+  overflow: hidden;
+  min-height: 0;
+}
+.full-block {
+  margin-top: 12px;
 }
 .detail-content {
   border: 1px solid var(--n-border-color, #e0e0e6);
@@ -330,9 +389,6 @@ onMounted(load)
   word-break: break-all;
   color: #d03050;
   font-size: 12px;
-}
-.detail-full-toggle {
-  margin-top: 8px;
 }
 .full-list {
   display: flex;
