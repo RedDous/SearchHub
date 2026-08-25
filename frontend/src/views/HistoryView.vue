@@ -25,8 +25,11 @@
       :loading="loading"
       :pagination="pagination"
       :row-key="(row: HistoryRow) => row.id"
+      :expanded-row-keys="expandedRows"
+      :row-props="(row: HistoryRow) => ({ onClick: () => toggleRowExpand(row), class: 'clickable-row' })"
       :empty="t('history.empty')"
       size="small"
+      @update:expanded-row-keys="onExpandedChange"
       @update:page="onPage"
     />
   </div>
@@ -65,6 +68,17 @@ const fullMap = ref<Record<number, HistoryFullEntry[] | null>>({})
 const fullLoading = ref<Record<number, boolean>>({})
 const expandedFull = ref<Record<number, boolean>>({})
 const itemOpen = ref<Record<string, boolean>>({})
+const expandedRows = ref<number[]>([])
+
+function toggleRowExpand(row: HistoryRow) {
+  const i = expandedRows.value.indexOf(row.id)
+  if (i >= 0) expandedRows.value.splice(i, 1)
+  else expandedRows.value.push(row.id)
+}
+
+function onExpandedChange(keys: number[]) {
+  expandedRows.value = keys
+}
 
 function toggleItem(id: number, i: number) {
   const key = `${id}:${i}`
@@ -135,9 +149,15 @@ const HistoryExpand = defineComponent({
           { class: 'full-item-head-text' },
           isSearch ? `${i + 1}. ${it.title ?? it.url}` : it.url,
         )
+        const urlLine = h('div', { class: 'full-item-url-line' }, [
+          it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
+          isSearch
+            ? h('a', { class: 'full-item-url', href: it.url, target: '_blank', rel: 'noopener' }, it.url)
+            : h('span', { class: 'full-item-url' }, it.url),
+        ])
         const body = isSearch
           ? [
-              h('a', { class: 'full-item-url', href: it.url, target: '_blank', rel: 'noopener' }, it.url),
+              urlLine,
               it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
             ]
           : [
@@ -146,7 +166,6 @@ const HistoryExpand = defineComponent({
                 ? h('div', { class: 'full-item-desc full-item-error-text' }, it.error)
                 : h('pre', { class: 'full-item-content' }, it.content ?? ''),
             ]
-        if (it.provider) body.push(h('span', { class: 'full-item-provider' }, it.provider))
         return h('div', { class: ['full-item', { 'full-item-error': !!it.error }] }, [
           h('div', { class: 'full-item-head', onClick: () => toggleItem(id, i) }, [
             head,
@@ -225,7 +244,7 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   {
     title: t('history.query'),
     key: 'query',
-    render: (row) => h(NEllipsis, { style: 'max-width: 240px' }, { default: () => row.query }),
+    render: (row) => h(NEllipsis, {}, { default: () => row.query }),
   },
   { title: t('history.provider'), key: 'providers' },
   {
@@ -478,13 +497,22 @@ onMounted(load)
 .full-item-error-text {
   color: #d03050;
 }
+.full-item-url-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
 .full-item-provider {
   display: inline-block;
-  margin-top: 4px;
   font-size: 11px;
   color: #888;
   background: rgba(0, 0, 0, 0.04);
   border-radius: 3px;
   padding: 1px 6px;
+  flex-shrink: 0;
+}
+.clickable-row {
+  cursor: pointer;
 }
 </style>
