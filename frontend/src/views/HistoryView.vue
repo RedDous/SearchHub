@@ -249,8 +249,14 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   {
     title: t('history.provider'),
     key: 'providers',
-    width: 110,
-    render: (row) => h(NEllipsis, { style: 'white-space: nowrap' }, { default: () => row.providers || '—' }),
+    render: (row) =>
+      h(
+        'div',
+        { class: 'providers-tags' },
+        (row.providers || '').split(',').filter(Boolean).map((p) =>
+          h(NTag, { size: 'small', bordered: false }, { default: () => p }),
+        ),
+      ),
   },
   {
     title: t('history.caller'),
@@ -519,5 +525,13 @@ onMounted(load)
 }
 .clickable-row {
   cursor: pointer;
+}
+.providers-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.providers-tags .n-tag {
+  white-space: nowrap;
 }
 </style>
