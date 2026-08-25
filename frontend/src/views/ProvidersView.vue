@@ -130,7 +130,6 @@ const columns = computed<DataTableColumns<Row>>(() => [
     key: 'id',
     render: (row) => h('span', { class: 'provider-cell' }, [
       h('span', { class: 'provider-name' }, row.name),
-      h('span', { class: 'provider-sub' }, row.id),
     ]),
   },
   {
