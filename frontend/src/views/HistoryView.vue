@@ -246,7 +246,12 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
     key: 'query',
     render: (row) => h(NEllipsis, {}, { default: () => row.query }),
   },
-  { title: t('history.provider'), key: 'providers' },
+  {
+    title: t('history.provider'),
+    key: 'providers',
+    width: 110,
+    render: (row) => h(NEllipsis, { style: 'white-space: nowrap' }, { default: () => row.providers || '—' }),
+  },
   {
     title: t('history.caller'),
     key: 'token_name',
