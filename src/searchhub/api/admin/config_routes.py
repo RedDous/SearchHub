@@ -124,14 +124,13 @@ async def _probe(provider, cap: str) -> dict:
 
 
 def _record_test(engine, provider_id: str, result: dict) -> dict:
-    entry: dict = {"success": bool(result.get("success")), "at": time.time()}
-    data = result.get("data")
-    if data:
-        entry.update({"capability": data.get("capability"), "count": data.get("count"),
-                      "took_ms": data.get("took_ms")})
-    if result.get("error"):
-        entry["error"] = result["error"]
-    engine.provider_tests[provider_id] = entry
+    data = result.get("data") or {}
+    engine.record_test(provider_id,
+                       success=bool(result.get("success")),
+                       capability=data.get("capability", ""),
+                       count=data.get("count", 0),
+                       took_ms=data.get("took_ms", 0.0),
+                       error=result.get("error"))
     return result
 
 

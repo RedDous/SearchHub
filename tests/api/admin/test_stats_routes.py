@@ -147,3 +147,31 @@ def test_history_full_extract_and_redaction(admin_client, caller_token):
     full = json.loads(
         admin_client.get(f"/api/admin/history/{row['id']}/full").json()["data"]["response_full"])
     assert full["items"][0]["content"] == "c" * 100
+
+
+def test_availability_updated_after_real_call(admin_client, caller_token):
+    from searchhub.models import SearchItem
+    from searchhub.providers.ddg import DdgProvider
+
+    headers = {"Authorization": f"Bearer {caller_token}"}
+    body = {"id": "ddg", "capabilities": ["search"], "enabled": True,
+            "weight": 10, "priority": 100, "max_results": 8, "base_url": None,
+            "key_pool": {"max_concurrency": 2, "rps_limit": 10, "cooldown_s": 60},
+            "options": {}}
+    assert admin_client.post("/api/admin/providers", json=body).status_code == 200
+    assert admin_client.get("/api/admin/config").json()["data"]["provider_status"]["ddg"]["status"] == "untested"
+    original = DdgProvider.search
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://a.example", provider="ddg")]
+
+    DdgProvider.search = fake_search
+    try:
+        r = admin_client.get("/v1/search", params={"q": "hello"}, headers=headers)
+        assert r.status_code == 200 and r.json()["success"]
+    finally:
+        DdgProvider.search = original
+    st = admin_client.get("/api/admin/config").json()["data"]["provider_status"]["ddg"]
+    assert st["status"] == "ok"
+    assert st["test"]["capability"] == "search"
+    assert st["test"]["count"] == 1

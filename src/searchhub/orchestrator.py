@@ -35,6 +35,16 @@ class SearchHubEngine:
         # 最近一次连接测试结果（内存态，重启后重置）：{provider_id: {success, capability, count, took_ms, error?, at}}
         self.provider_tests: dict[str, dict[str, Any]] = {}
 
+    def record_test(self, provider_id: str, *, success: bool, capability: str,
+                    count: int, took_ms: float, error: str | None = None) -> None:
+        """真实调用或连接测试后记录可用性快照。"""
+        entry: dict[str, Any] = {"success": bool(success), "at": time.time(),
+                                 "capability": capability, "count": count,
+                                 "took_ms": round(took_ms, 1)}
+        if error:
+            entry["error"] = error
+        self.provider_tests[provider_id] = entry
+
     def maybe_reload(self) -> bool:
         if self.config.maybe_reload() or self._version != self.config.config_version:
             self._registry = build_registry(self.config.get(), self.config.secrets(), self.http)
@@ -95,6 +105,9 @@ class SearchHubEngine:
                     outcomes = [await primary_fallback(providers_list, "search", t, call)]
             for o in outcomes:
                 self._record(o.provider_id, o.error is None, o.took_ms)
+                self.record_test(o.provider_id, success=o.error is None, capability="search",
+                                 count=len(o.items) if o.items else 0, took_ms=o.took_ms,
+                                 error=o.error)
             if all(o.error for o in outcomes):
                 details = "; ".join(f"{o.provider_id}: {o.error}" for o in outcomes)
                 resp = SearchResponse(success=False, data=SearchData(web=[]), error=details,
@@ -163,6 +176,9 @@ class SearchHubEngine:
                     outcomes = [await primary_fallback(providers_list, "extract", t, call)]
             for o in outcomes:
                 self._record(o.provider_id, o.error is None, o.took_ms)
+                self.record_test(o.provider_id, success=o.error is None, capability="extract",
+                                 count=len(o.items) if o.items else 0, took_ms=o.took_ms,
+                                 error=o.error)
             merged = merge_extract(outcomes, remaining, self._registry)
             if self.cache and cache:
                 for item in merged:
