@@ -29,6 +29,11 @@ hermes plugins enable web-searchhub   # 用户插件默认不加载，需显式�
 
 > 注意：插件目录必须有 `__init__.py`（含 `register(ctx)` 导出），
 > 缺失会导致加载器直接抛 `FileNotFoundError`（hermes_cli/plugins.py）。
+>
+> `hermes plugins enable` 时会询问 "Allow this plugin to replace built-in
+> tools (e.g. shell_exec, write_file)?"——请选 **No**。该弹窗针对的是
+> 替换内置工具的插件（如 shell_exec/write_file 覆盖）；本插件只注册
+> web 搜索后端，不替换任何内置工具，授权纯属多余特权。
 
 ## 配置
 
