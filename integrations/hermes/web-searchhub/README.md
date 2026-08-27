@@ -4,10 +4,24 @@ SearchHub 聚合服务的 hermes-agent 原生后端（Route A：顶替内置 web
 
 ## 安装
 
+获取三个文件（`plugin.yaml` / `provider.py` / `__init__.py`），二选一：
+
+- **hermes 与 SearchHub 仓库在同一台机器**：直接用仓库内文件
+  ```bash
+  cp integrations/hermes/web-searchhub/{plugin.yaml,provider.py,__init__.py} ~/.hermes/plugins/web/searchhub/
+  # 或软链整个目录：ln -s $(pwd)/integrations/hermes/web-searchhub ~/.hermes/plugins/web/searchhub
+  ```
+- **hermes 在别的机器（如 NAS 之外的电脑）**：从 GitHub 下载
+  ```bash
+  mkdir -p ~/.hermes/plugins/web/searchhub && cd ~/.hermes/plugins/web/searchhub
+  curl -fsSLO https://raw.githubusercontent.com/RedDous/SearchHub/main/integrations/hermes/web-searchhub/plugin.yaml
+  curl -fsSLO https://raw.githubusercontent.com/RedDous/SearchHub/main/integrations/hermes/web-searchhub/provider.py
+  curl -fsSLO https://raw.githubusercontent.com/RedDous/SearchHub/main/integrations/hermes/web-searchhub/__init__.py
+  ```
+
+然后启用：
+
 ```bash
-mkdir -p ~/.hermes/plugins/web/searchhub
-cp plugin.yaml provider.py __init__.py ~/.hermes/plugins/web/searchhub/
-# 或在仓库内直接软链：ln -s $(pwd) ~/.hermes/plugins/web/searchhub
 hermes plugins list        # 应看到 web-searchhub
 hermes plugins enable web-searchhub   # 用户插件默认不加载，需显式启用
 # 等价做法：hermes config set plugins.enabled '["web-searchhub"]'
