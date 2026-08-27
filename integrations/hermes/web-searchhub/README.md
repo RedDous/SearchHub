@@ -6,10 +6,15 @@ SearchHub 聚合服务的 hermes-agent 原生后端（Route A：顶替内置 web
 
 ```bash
 mkdir -p ~/.hermes/plugins/web/searchhub
-cp plugin.yaml provider.py ~/.hermes/plugins/web/searchhub/
+cp plugin.yaml provider.py __init__.py ~/.hermes/plugins/web/searchhub/
 # 或在仓库内直接软链：ln -s $(pwd) ~/.hermes/plugins/web/searchhub
 hermes plugins list        # 应看到 web-searchhub
+hermes plugins enable web-searchhub   # 用户插件默认不加载，需显式启用
+# 等价做法：hermes config set plugins.enabled '["web-searchhub"]'
 ```
+
+> 注意：插件目录必须有 `__init__.py`（含 `register(ctx)` 导出），
+> 缺失会导致加载器直接抛 `FileNotFoundError`（hermes_cli/plugins.py）。
 
 ## 配置
 
