@@ -62,4 +62,8 @@ hermes config set web.extract_backend searchhub
 ## 说明
 
 - `is_available()` 不联网（仅查 URL/TOKEN 是否配置）
-- 响应由 SearchHub 位对位透传（`data.web[].title/url/description/position`；extract 的 `data[].url/title/content/raw_content/metadata`）
+- **search**：SearchHub 的 `{success, data:{web:[…]}}` 信封位对位透传
+- **extract**：按 hermes 契约拆包为"每条 URL 一个 dict"的列表
+  （`{url, title, content, raw_content, metadata, error}`）；服务端整体
+  失败或不可达时同样返回逐条 error 项，避免 hermes 把信封当列表迭代
+  （曾导致 `'str' object has no attribute 'get'`）

@@ -50,13 +50,36 @@ class SearchHubProvider(WebSearchProvider):
     def search(self, query: str, limit: int = 5) -> dict:
         return self._call("GET", "/v1/search", params={"q": query, "limit": limit})
 
-    def extract(self, urls, **kwargs) -> dict:
-        # kwargs 可能携带 format/include_raw/max_chars 等 forward-compat 字段，未知键忽略
+    def extract(self, urls, **kwargs) -> list:
+        # Hermes 契约：extract 必须返回"每条 URL 一个 dict"的列表（见
+        # agent/web_search_provider.py 的 ABC docstring），不是
+        # {success, data} 信封——信封会被当成列表迭代，元素是字符串键，
+        # 逐项 .get() 即抛 'str' object has no attribute 'get'。
         body = {"urls": list(urls)}
         for key in ("format", "include_raw", "max_chars"):
             if key in kwargs and kwargs[key] is not None:
                 body[key] = kwargs[key]
-        return self._call("POST", "/v1/extract", json_body=body, timeout=90.0)
+        resp = self._call("POST", "/v1/extract", json_body=body, timeout=90.0)
+        if not isinstance(resp, dict) or not resp.get("success"):
+            error = resp.get("error", "extract failed") if isinstance(resp, dict) else str(resp)
+            return [{"url": u, "title": "", "content": "", "raw_content": "",
+                     "metadata": {}, "error": error} for u in urls]
+        items = resp.get("data") or []
+        out = []
+        for it in items:
+            if not isinstance(it, dict):
+                out.append({"url": "", "title": "", "content": "", "raw_content": "",
+                            "metadata": {}, "error": "malformed extract item"})
+                continue
+            out.append({
+                "url": it.get("url", ""),
+                "title": it.get("title", ""),
+                "content": it.get("content", ""),
+                "raw_content": it.get("raw_content", ""),
+                "metadata": it.get("metadata") or {},
+                "error": it.get("error"),
+            })
+        return out
 
 
 def register(ctx) -> None:
