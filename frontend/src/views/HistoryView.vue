@@ -20,6 +20,7 @@
 
     <n-data-table
       remote
+      class="history-table"
       :columns="columns"
       :data="rows"
       :loading="loading"
