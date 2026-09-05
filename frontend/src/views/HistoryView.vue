@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
-import { useMessage, NCode, NEllipsis, NTag } from 'naive-ui'
+import { useMessage, NCode, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import type { PropType } from 'vue'
 import { adminApi, type HistoryFullEntry, type HistoryRow } from '@/api/admin'
@@ -245,7 +245,8 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   {
     title: t('history.query'),
     key: 'query',
-    render: (row) => h(NEllipsis, {}, { default: () => row.query }),
+    minWidth: 200,
+    ellipsis: { tooltip: true },
   },
   {
     title: t('history.provider'),
@@ -296,6 +297,7 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   },
   {
     type: 'expand',
+    width: 40,
     renderExpand: (row) => h(HistoryExpand, { row }),
   },
 ])
