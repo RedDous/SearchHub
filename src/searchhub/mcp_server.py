@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -23,6 +24,11 @@ from searchhub.storage.history import RequestLogRepo
 logger = logging.getLogger(__name__)
 
 _engine: SearchHubEngine | None = None
+
+# MCP HTTP 请求经 _auth_wrap 校验 Bearer token 后，把令牌名写进 contextvar，
+# 工具调用据此记录历史"调用方"（stdio 模式无 token，留空）。
+_token_name: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "searchhub_mcp_token_name", default="")
 
 
 def set_engine(engine: SearchHubEngine | None) -> None:
@@ -48,7 +54,8 @@ def create_mcp_server() -> MCPServer:
     ) -> str:
         """Search the web and return results as a JSON string."""
         resp = await _get_engine().search(
-            query, limit=limit, providers=providers, strategy=strategy)
+            query, limit=limit, providers=providers, strategy=strategy,
+            token_name=_token_name.get())
         if not resp.success:
             return json.dumps({"success": False, "error": resp.error}, ensure_ascii=False)
         return json.dumps(resp.data.model_dump(), ensure_ascii=False)
@@ -60,7 +67,8 @@ def create_mcp_server() -> MCPServer:
         max_chars: Annotated[int, Field(ge=100, le=1_000_000)] = 15000,
     ) -> str:
         """Extract content from web pages and return a JSON string."""
-        resp = await _get_engine().extract(urls, fmt=format, max_chars=max_chars)
+        resp = await _get_engine().extract(urls, fmt=format, max_chars=max_chars,
+                                           token_name=_token_name.get())
         if not resp.success:
             return json.dumps({"success": False, "error": resp.error}, ensure_ascii=False)
         return json.dumps([i.model_dump() for i in resp.data], ensure_ascii=False)
@@ -69,6 +77,7 @@ def create_mcp_server() -> MCPServer:
 
 
 async def _run_stdio() -> None:
+    _token_name.set(os.environ.get("SEARCHHUB_MCP_CALLER", ""))
     data_dir = Path(os.environ.get("SEARCHHUB_DATA", "data"))
     config = ConfigService(data_dir)
     config.load()
@@ -134,11 +143,13 @@ def _auth_wrap(inner_app):
             return
         engine = _get_engine()
         engine.config.maybe_reload()
-        if _authorized(engine.config.get(), token) is None:
+        entry = _authorized(engine.config.get(), token)
+        if entry is None:
             response = JSONResponse({"success": False, "error": "invalid token"},
                                     status_code=401)
             await response(scope, receive, send)
             return
+        _token_name.set(entry.name)
         await inner_app(scope, receive, send)
 
     return app

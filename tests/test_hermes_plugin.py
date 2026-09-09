@@ -112,12 +112,32 @@ async def test_extract_passthrough_with_kwargs(env):
                 {"url": "https://a.com", "title": "T", "content": "c", "raw_content": "r", "metadata": {}}]}))
         p = SearchHubProvider()
         result = p.extract(["https://a.com"], format="markdown", max_chars=100, include_raw=True, unknown_future="x")
-        assert result["success"] is True
+        # hermes 契约：extract 返回"每条 URL 一个 dict"的列表（非信封）
+        assert isinstance(result, list)
+        assert result[0]["url"] == "https://a.com"
+        assert result[0]["title"] == "T"
+        assert result[0]["content"] == "c"
+        assert result[0]["raw_content"] == "r"
+        assert result[0]["error"] is None
         sent = route.calls[0].request
         body = sent.json()
         assert body["urls"] == ["https://a.com"]
         assert body["format"] == "markdown"
         assert "unknown_future" not in body
+
+
+@pytest.mark.asyncio
+async def test_extract_failure_returns_per_url_errors(env):
+    from provider import SearchHubProvider
+    with respx.mock:
+        respx.post("http://searchhub:8000/v1/extract").mock(
+            return_value=httpx.Response(200, json={"success": False, "error": "boom"}))
+        p = SearchHubProvider()
+        result = p.extract(["https://a.com", "https://b.com"])
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert all(r["error"] == "boom" for r in result)
+        assert result[0]["url"] == "https://a.com"
 
 
 @pytest.mark.asyncio

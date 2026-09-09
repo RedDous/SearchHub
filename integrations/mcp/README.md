@@ -9,6 +9,8 @@ MCP（Model Context Protocol）接入，让 AI Agent（opencode / claude / curso
 
 - 远程（http）方式需要调用方 Token（管理后台「调用方 Token」页创建），经 `Authorization: Bearer <token>` 携带；缺失或无效返回 401
 - 本地（stdio）方式本机直连，无需 Token
+- 历史查询的「调用方」列：远程方式显示所用 Token 的名称；stdio 方式可用
+  环境变量 `SEARCHHUB_MCP_CALLER` 指定显示名（如 `"opencode"`），缺省为空
 
 > Docker 部署时 stdio 模式在宿主机执行：需要宿主机有 Python 与 searchhub 包；否则用远程方式指向 `http://<NAS-IP>:8000/mcp`。
 
