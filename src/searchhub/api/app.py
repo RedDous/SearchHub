@@ -47,6 +47,7 @@ async def _cleanup_loop(history: RequestLogRepo, cache: CacheRepo | None,
 
 def create_app(data_dir: Path | None = None) -> FastAPI:
     data_dir = Path(data_dir) if data_dir else Path.cwd() / "data"
+    logger.info("SearchHub data dir: %s", data_dir.resolve())
     mcp_server = create_mcp_server()
 
     @asynccontextmanager
