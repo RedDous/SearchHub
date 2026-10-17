@@ -526,6 +526,56 @@ onMounted(load)
   padding: 1px 6px;
   flex-shrink: 0;
 }
+
+/* ---- 深色模式 ---- */
+.dark .detail-title {
+  color: #e8e8e8;
+}
+.dark .detail-title-hint {
+  color: #8f8f8f;
+}
+.dark .caret {
+  color: #9a9a9a;
+}
+.dark .detail-content {
+  border-color: #3a3a40;
+  background: #262626;
+}
+.dark .detail-error {
+  color: #e88080;
+}
+.dark .full-item {
+  border-color: #3a3a40;
+}
+.dark .full-item-head:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+.dark .full-item-head-text {
+  color: #e8e8e8;
+}
+.dark .full-item-url {
+  color: #70c0e8;
+}
+.dark .full-item-desc {
+  color: #a0a0a0;
+}
+.dark .full-item-content {
+  color: #c8c8c8;
+}
+.dark .full-item-provider {
+  color: #a0a0a0;
+  background: rgba(255, 255, 255, 0.08);
+}
+.dark .full-item-error {
+  border-color: #4a2c31;
+  background: #2a1e21;
+}
+.dark .full-item-error-text {
+  color: #e88080;
+}
+.dark .loading-text {
+  color: #8f8f8f;
+}
 .clickable-row {
   cursor: pointer;
 }
