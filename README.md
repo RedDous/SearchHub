@@ -49,6 +49,42 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 - 前端已内置镜像，无需单独构建（方式 A 直接拉取；方式 B 的 `--build` 已包含前端编译）
 - 镜像内以 root 运行（家用场景简化；如需非 root 可在 compose 加 `user:`）
 
+## 更新
+
+**方式 A（docker run）**——拉新镜像后用**与首次部署完全相同**的参数重建容器：
+
+```bash
+docker pull ghcr.io/reddous/searchhub:latest
+docker stop searchhub && docker rm searchhub
+# 重跑首次部署时的 docker run（建议原样保存该命令，或改用下面的 compose 方式）
+docker run -d --name searchhub \
+  -p 8000:8000 \
+  -v "$PWD/data:/data" \
+  -e SEARCHHUB_DATA=/data \
+  --restart unless-stopped \
+  ghcr.io/reddous/searchhub:latest
+```
+
+> ⚠️ **务必保留 `-v …:/data` 与 `-e SEARCHHUB_DATA=/data`**：缺 `SEARCHHUB_DATA`
+> 时应用会落到容器内临时目录（`/app/data`），表现为"密码回到默认、历史记录清空"——
+> 数据并未丢失，补上参数重建容器即恢复。新版镜像已内置该默认值，但仍建议显式携带。
+> 重建后可用 `docker logs searchhub | head` 确认输出 `SearchHub data dir: /data`。
+
+**方式 B（compose）**——compose 会按镜像自动重建，无需手动停删：
+
+```bash
+docker compose pull && docker compose up -d
+# 源码构建方式：
+git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+**更新后验证**：登录管理后台，仪表盘右上角应显示 `v<版本> · <commit 前 7 位>`，与
+[仓库 main 分支](https://github.com/RedDous/SearchHub/commits/main)最新提交一致即更新成功。
+
+> 建议：`docker run` 用户可改用仓库自带的 `docker-compose.yml` 管理容器
+> （`docker rm -f searchhub` 后 `docker compose up -d` 接管），此后更新只需
+> `docker compose pull && docker compose up -d`，参数不会再漂移。
+
 ## 供应商配置
 
 在管理后台「供应商」页按目录点选类型，即可进入该供应商的专属配置表单：
