@@ -56,6 +56,7 @@ import type { EChartsOption } from 'echarts'
 import { adminApi, type StatsSummary } from '@/api/admin'
 import BaseChart from '@/components/BaseChart.vue'
 import { t } from '@/i18n'
+import { useProviderTypesStore } from '@/stores/providerTypes'
 
 interface ProviderStatusRow {
   id: string
@@ -73,6 +74,7 @@ interface ChartRow {
 }
 
 const message = useMessage()
+const typesStore = useProviderTypesStore()
 const loading = ref(false)
 const version = ref('-')
 const commit = ref('-')
@@ -126,7 +128,11 @@ const chartOption = computed<EChartsOption>(() => ({
 }))
 
 const providerColumns = computed<DataTableColumns<ProviderStatusRow>>(() => [
-  { title: t('dashboard.id'), key: 'id' },
+  {
+    title: t('dashboard.providers'),
+    key: 'id',
+    render: (row) => typesStore.byType(row.id)?.name ?? row.id,
+  },
   {
     title: t('dashboard.capabilities'),
     key: 'capabilities',
@@ -170,7 +176,10 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  typesStore.load()
+  load()
+})
 </script>
 
 <style scoped>
