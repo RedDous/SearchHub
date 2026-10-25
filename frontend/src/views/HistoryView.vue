@@ -67,7 +67,6 @@ const capabilityOptions = computed(() => [
 
 const fullMap = ref<Record<number, HistoryFullEntry[] | null>>({})
 const fullLoading = ref<Record<number, boolean>>({})
-const expandedFull = ref<Record<number, boolean>>({})
 const itemOpen = ref<Record<string, boolean>>({})
 const expandedRows = ref<number[]>([])
 
@@ -86,23 +85,16 @@ function toggleItem(id: number, i: number) {
   itemOpen.value[key] = !itemOpen.value[key]
 }
 
-async function toggleFull(row: HistoryRow) {
+async function ensureFull(row: HistoryRow) {
   const id = row.id
-  if (fullLoading.value[id]) return
-  if (expandedFull.value[id]) {
-    expandedFull.value[id] = false
-    return
-  }
-  expandedFull.value[id] = true
-  if (fullMap.value[id]) return
+  if (fullLoading.value[id] || fullMap.value[id] !== undefined) return
   fullLoading.value[id] = true
   try {
     const r = await adminApi.getHistoryFull(id)
     const parsed = JSON.parse(r.response_full) as { items?: HistoryFullEntry[] }
     fullMap.value[id] = parsed.items ?? []
-  } catch (e) {
+  } catch {
     fullMap.value[id] = null
-    message.error(e instanceof Error ? e.message : t('common.failed'))
   } finally {
     fullLoading.value[id] = false
   }
@@ -111,12 +103,14 @@ async function toggleFull(row: HistoryRow) {
 const HistoryExpand = defineComponent({
   props: { row: { type: Object as PropType<HistoryRow>, required: true } },
   setup(props) {
+    onMounted(() => {
+      if (props.row.has_full) ensureFull(props.row)
+    })
     return () => {
       const row = props.row
       const id = row.id
       const entries = fullMap.value[id]
       const loading = fullLoading.value[id]
-      const open = expandedFull.value[id]
       const blocks = [
         h('div', { class: 'detail-block' }, [
           h('div', { class: 'detail-title' }, t('history.params')),
@@ -135,12 +129,6 @@ const HistoryExpand = defineComponent({
           ]),
         )
       }
-      const hint = loading
-        ? t('history.loadingFull')
-        : open
-          ? t('history.collapseFull')
-          : t('history.expandFull')
-      const title = open ? t('history.fullResponse') : t('history.preview')
       const renderItem = (it: HistoryFullEntry, i: number) => {
         const isSearch = row.capability === 'search'
         const openKey = `${id}:${i}`
@@ -177,28 +165,15 @@ const HistoryExpand = defineComponent({
       }
       blocks.push(
         h('div', { class: 'detail-block' }, [
-          h(
-            'div',
-            {
-              class: ['detail-title', { 'detail-title-clickable': !!row.has_full }],
-              onClick: row.has_full ? () => toggleFull(row) : undefined,
-            },
-            [
-              h('span', {}, title),
-              row.has_full ? h('span', { class: 'detail-title-hint' }, hint) : null,
-              row.has_full ? h('span', { class: ['caret', { open }] }, '▸') : null,
-            ],
-          ),
-          open
+          h('div', { class: 'detail-title' }, t('history.response')),
+          row.has_full
             ? loading
               ? h('div', { class: 'detail-content' }, [h('span', { class: 'loading-text' }, t('history.loadingFull'))])
-              : h('div', { class: ['full-collapse', { open: true }] }, [
-                  h('div', { class: 'full-collapse-inner' }, [
-                    h('div', { class: 'detail-block full-block' }, [
-                      h('div', { class: 'full-list' }, (entries ?? []).map(renderItem)),
-                    ]),
-                  ]),
-                ])
+              : entries === null
+                ? h('div', { class: 'detail-content' }, [h('span', { class: 'loading-text' }, t('common.failed'))])
+                : h('div', { class: 'detail-content' }, [
+                    h('div', { class: 'full-list' }, entries.map(renderItem)),
+                  ])
             : h('div', { class: 'detail-content' }, [
                 h(NCode, { code: row.response_preview, wordWrap: true }),
               ]),
@@ -387,13 +362,6 @@ onMounted(load)
   border-left-color: #d03050;
   color: #d03050;
 }
-.detail-title-clickable {
-  cursor: pointer;
-  user-select: none;
-}
-.detail-title-clickable:hover {
-  color: #2080f0;
-}
 .caret {
   display: inline-block;
   font-size: 11px;
@@ -402,27 +370,6 @@ onMounted(load)
 }
 .caret.open {
   transform: rotate(90deg);
-}
-.detail-title-hint {
-  margin-left: auto;
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--n-text-color-3, #999);
-}
-.full-collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.28s ease;
-}
-.full-collapse.open {
-  grid-template-rows: 1fr;
-}
-.full-collapse-inner {
-  overflow: hidden;
-  min-height: 0;
-}
-.full-block {
-  margin-top: 12px;
 }
 .detail-content {
   border: 1px solid var(--n-border-color, #e0e0e6);
@@ -530,9 +477,6 @@ onMounted(load)
 /* ---- 深色模式 ---- */
 .dark .detail-title {
   color: #e8e8e8;
-}
-.dark .detail-title-hint {
-  color: #8f8f8f;
 }
 .dark .caret {
   color: #9a9a9a;
