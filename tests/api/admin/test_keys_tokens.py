@@ -122,3 +122,24 @@ def test_jina_prefixed_key_into_tavily_reports_wrong_provider(admin_client):
     r = admin_client.post("/api/admin/providers/tavily/keys", json={"key": "jina_xyz"})
     assert r.status_code == 400
     assert "jina" in r.json()["error"]
+
+
+def test_token_rename_updates_caller_name(admin_client):
+    created = admin_client.post("/api/admin/tokens", json={"name": "opencode"}).json()["data"]
+    r = admin_client.patch(f"/api/admin/tokens/{created['id']}", json={"name": "opencode-mcp"})
+    assert r.status_code == 200 and r.json()["success"] is True
+    tokens = admin_client.get("/api/admin/tokens").json()["data"]["tokens"]
+    assert any(t["id"] == created["id"] and t["name"] == "opencode-mcp" for t in tokens)
+    # 重命名后新调用记录使用新名称
+    import httpx
+    headers = {"Authorization": f"Bearer {created['token']}"}
+    admin_client.get("/v1/search", params={"q": "x"}, headers=headers)
+    rows = admin_client.get("/api/admin/history").json()["data"]["rows"]
+    assert rows[0]["token_name"] == "opencode-mcp"
+
+
+def test_token_rename_validations(admin_client):
+    created = admin_client.post("/api/admin/tokens", json={"name": "a"}).json()["data"]
+    assert admin_client.patch("/api/admin/tokens/nope", json={"name": "b"}).status_code == 404
+    assert admin_client.patch(f"/api/admin/tokens/{created['id']}", json={"name": "  "}).status_code == 400
+    assert admin_client.patch(f"/api/admin/tokens/{created['id']}", json={"name": ""}).status_code == 422

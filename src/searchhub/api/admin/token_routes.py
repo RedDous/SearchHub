@@ -18,6 +18,10 @@ class TokenCreateBody(BaseModel):
     name: str = Field(min_length=1, max_length=64)
 
 
+class TokenRenameBody(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+
+
 @router.get("/tokens")
 async def list_tokens(request: Request):
     tokens = request.app.state.engine.config.get().auth.tokens
@@ -39,6 +43,22 @@ async def create_token(body: TokenCreateBody, request: Request):
     cfg.auth.tokens.append(entry)
     svc.save_config(cfg)
     return {"success": True, "data": {"id": entry.id, "name": entry.name, "token": raw}}
+
+
+@router.patch("/tokens/{token_id}")
+async def rename_token(token_id: str, body: TokenRenameBody, request: Request):
+    svc = request.app.state.engine.config
+    svc.maybe_reload()
+    cfg = svc.get()
+    entry = next((t for t in cfg.auth.tokens if t.id == token_id), None)
+    if entry is None:
+        raise HTTPException(status_code=404, detail="token not found")
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name must not be empty")
+    entry.name = name
+    svc.save_config(cfg)
+    return {"success": True}
 
 
 @router.delete("/tokens/{token_id}")

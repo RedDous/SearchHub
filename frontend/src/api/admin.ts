@@ -106,6 +106,8 @@ export const adminApi = {
   listTokens: () => request<{ tokens: TokenInfo[] }>('/api/admin/tokens'),
   createToken: (name: string) => request<{ id: string; name: string; token: string }>('/api/admin/tokens', { method: 'POST', body: { name } }),
   deleteToken: (id: string) => request<null>(`/api/admin/tokens/${id}`, { method: 'DELETE' }),
+  updateToken: (id: string, name: string) =>
+    request<null>(`/api/admin/tokens/${id}`, { method: 'PATCH', body: { name } }),
   updateSettings: (partial: Record<string, unknown>) =>
     request<{ config_version: number }>('/api/admin/settings', { method: 'PUT', body: partial }),
   listHistory: (params: Record<string, string | number | undefined>) =>

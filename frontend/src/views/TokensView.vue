@@ -23,6 +23,20 @@
       </template>
     </n-modal>
 
+    <n-modal v-model:show="showEditModal" preset="card" :title="t('tokens.edit')" style="width: 420px">
+      <n-form label-placement="top">
+        <n-form-item :label="t('tokens.name')">
+          <n-input v-model:value="editName" :placeholder="t('tokens.name')" @keyup.enter="onEditSave" />
+        </n-form-item>
+      </n-form>
+      <template #footer>
+        <n-space justify="end">
+          <n-button @click="showEditModal = false">{{ t('common.cancel') }}</n-button>
+          <n-button type="primary" :loading="editing" @click="onEditSave">{{ t('common.save') }}</n-button>
+        </n-space>
+      </template>
+    </n-modal>
+
     <n-modal
       v-model:show="showResult"
       preset="card"
@@ -43,7 +57,7 @@
 
 <script setup lang="ts">
 import { computed, h, onMounted, ref } from 'vue'
-import { useDialog, useMessage, NButton, NTag } from 'naive-ui'
+import { useDialog, useMessage, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { adminApi, type TokenInfo } from '@/api/admin'
 import { t } from '@/i18n'
@@ -57,6 +71,10 @@ const showCreateModal = ref(false)
 const showResult = ref(false)
 const newName = ref('')
 const created = ref<{ name: string; token: string } | null>(null)
+const showEditModal = ref(false)
+const editingId = ref('')
+const editName = ref('')
+const editing = ref(false)
 
 const columns = computed<DataTableColumns<TokenInfo>>(() => [
   { title: t('tokens.name'), key: 'name' },
@@ -81,11 +99,20 @@ const columns = computed<DataTableColumns<TokenInfo>>(() => [
     title: t('tokens.actions'),
     key: 'actions',
     render: (row) =>
-      h(
-        NButton,
-        { size: 'small', type: 'error', ghost: true, onClick: () => onDelete(row) },
-        { default: () => t('tokens.delete') },
-      ),
+      h(NSpace, { size: 6 }, {
+        default: () => [
+          h(
+            NButton,
+            { size: 'small', type: 'primary', ghost: true, onClick: () => onEdit(row) },
+            { default: () => t('tokens.edit') },
+          ),
+          h(
+            NButton,
+            { size: 'small', type: 'error', ghost: true, onClick: () => onDelete(row) },
+            { default: () => t('tokens.delete') },
+          ),
+        ],
+      }),
   },
 ])
 
@@ -117,6 +144,28 @@ async function onCreate() {
     message.error(e instanceof Error ? e.message : t('common.failed'))
   } finally {
     creating.value = false
+  }
+}
+
+function onEdit(row: TokenInfo) {
+  editingId.value = row.id
+  editName.value = row.name
+  showEditModal.value = true
+}
+
+async function onEditSave() {
+  const name = editName.value.trim()
+  if (!name || editing.value) return
+  editing.value = true
+  try {
+    await adminApi.updateToken(editingId.value, name)
+    message.success(t('common.success'))
+    showEditModal.value = false
+    await load()
+  } catch (e) {
+    message.error(e instanceof Error ? e.message : t('common.failed'))
+  } finally {
+    editing.value = false
   }
 }
 
