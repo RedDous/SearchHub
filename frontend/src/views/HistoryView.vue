@@ -138,8 +138,11 @@ const HistoryExpand = defineComponent({
           { class: 'full-item-head-text' },
           isSearch ? `${i + 1}. ${it.title ?? it.url}` : it.url,
         )
+        const chars = isSearch ? (it.description ?? '').length : (it.content ?? '').length
+        const chartTag = h('span', { class: 'full-item-chars' }, `${chars} ${t('history.chars')}`)
         const urlLine = h('div', { class: 'full-item-url-line' }, [
           it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
+          chartTag,
           isSearch
             ? h('a', { class: 'full-item-url', href: it.url, target: '_blank', rel: 'noopener' }, it.url)
             : h('span', { class: 'full-item-url' }, it.url),
@@ -150,6 +153,7 @@ const HistoryExpand = defineComponent({
               it.description ? h('div', { class: 'full-item-desc' }, it.description) : null,
             ]
           : [
+              urlLine,
               it.title ? h('div', { class: 'full-item-desc' }, it.title) : null,
               it.error
                 ? h('div', { class: 'full-item-desc full-item-error-text' }, it.error)
@@ -473,6 +477,16 @@ onMounted(load)
   padding: 1px 6px;
   flex-shrink: 0;
 }
+.full-item-chars {
+  display: inline-block;
+  font-size: 11px;
+  color: #888;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 3px;
+  padding: 1px 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 
 /* ---- 深色模式 ---- */
 .dark .detail-title {
@@ -506,7 +520,8 @@ onMounted(load)
 .dark .full-item-content {
   color: #c8c8c8;
 }
-.dark .full-item-provider {
+.dark .full-item-provider,
+.dark .full-item-chars {
   color: #a0a0a0;
   background: rgba(255, 255, 255, 0.08);
 }
