@@ -17,6 +17,7 @@
 无需拉取源码，直接拉取镜像运行：
 
 ```bash
+cd /path/to/searchhub      # 你的部署目录（数据固定保存到此目录的 data/ 下）
 mkdir -p data
 docker run -d --name searchhub \
   -p 8000:8000 \
@@ -26,6 +27,11 @@ docker run -d --name searchhub \
   --restart unless-stopped \
   ghcr.io/reddous/searchhub:latest
 ```
+
+> ⚠️ `$PWD` 取的是**执行命令时所在目录**。请务必先 `cd` 到部署目录再执行；
+> 若在别的目录执行，会在那里新建一个空 `data/`（表现为密码回到默认、
+> 供应商/Token/历史全部为空）——此时旧数据并未丢失，用正确目录重建容器即可恢复。
+> 更稳妥的做法：把 `$PWD/data` 换成绝对路径（如 `/vol1/1000/Service/SearchHub/data`）。
 
 **方式 B：源码构建**
 
@@ -54,6 +60,7 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 **方式 A（docker run）**——拉新镜像后用**与首次部署完全相同**的参数重建容器：
 
 ```bash
+cd /path/to/searchhub      # 必须是数据目录所在目录！$PWD 取执行时目录
 docker pull ghcr.io/reddous/searchhub:latest
 docker stop searchhub && docker rm searchhub
 # 重跑首次部署时的 docker run（建议原样保存该命令，或改用下面的 compose 方式）
@@ -63,7 +70,11 @@ docker run -d --name searchhub \
   -e SEARCHHUB_DATA=/data \
   --restart unless-stopped \
   ghcr.io/reddous/searchhub:latest
+docker logs searchhub 2>&1 | head -3   # 应输出 SearchHub data dir: /data
 ```
+
+> 💡 **强烈建议**把 `-v "$PWD/data:/data"` 换成绝对路径
+> （如 `-v /vol1/1000/Service/SearchHub/data:/data`），这样在任何目录执行更新都不会挂错数据。
 
 > ⚠️ **务必保留 `-v …:/data` 与 `-e SEARCHHUB_DATA=/data`**：缺 `SEARCHHUB_DATA`
 > 时应用会落到容器内临时目录（`/app/data`），表现为"密码回到默认、历史记录清空"——
