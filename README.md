@@ -67,7 +67,6 @@ docker run -d --name searchhub \
   -e SEARCHHUB_DATA=/data \
   --restart unless-stopped \
   ghcr.io/reddous/searchhub:latest
-docker logs searchhub 2>&1 | head -3   # 应输出 SearchHub data dir: /data
 ```
 
 > 注：`$PWD` 取执行时所在目录——务必在部署目录执行更新，且 `-v` 挂载路径
@@ -76,7 +75,6 @@ docker logs searchhub 2>&1 | head -3   # 应输出 SearchHub data dir: /data
 > ⚠️ **务必保留 `-v …:/data` 与 `-e SEARCHHUB_DATA=/data`**：缺 `SEARCHHUB_DATA`
 > 时应用会落到容器内临时目录（`/app/data`），表现为"密码回到默认、历史记录清空"——
 > 数据并未丢失，补上参数重建容器即恢复。新版镜像已内置该默认值，但仍建议显式携带。
-> 重建后可用 `docker logs searchhub | head` 确认输出 `SearchHub data dir: /data`。
 
 **方式 B（compose）**——compose 会按镜像自动重建，无需手动停删：
 
