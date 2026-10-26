@@ -31,6 +31,8 @@ def merge_search(outcomes: list[Outcome], limit: int,
             continue
         w = _weight(providers, out.provider_id)
         for item in out.items:
+            if not item.url:  # 无 URL 的结果无意义，避免污染合并与展示
+                continue
             key = normalize_url(item.url)
             prev = best.get(key)
             if prev is None or _weight(providers, prev.provider) < w:

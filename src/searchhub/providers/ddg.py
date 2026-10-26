@@ -23,11 +23,18 @@ class DdgProvider(Provider):
             results = await asyncio.to_thread(self._search_sync, query, limit)
         except Exception as e:
             raise type(e)(f"ddg: {e}") from e
-        return [
-            SearchItem(title=r.get("title", ""), url=r.get("href", ""),
-                       description=r.get("body", ""), position=i, provider=self.id)
-            for i, r in enumerate(results)
-        ]
+        items: list[SearchItem] = []
+        for r in results:
+            if not isinstance(r, dict):
+                continue
+            url = (r.get("href") or r.get("url") or "").strip()
+            if not url:  # ddgs 偶发返回空条目，直接丢弃
+                continue
+            title = (r.get("title") or "").strip()
+            items.append(SearchItem(title=title or url, url=url,
+                                    description=r.get("body") or "",
+                                    position=len(items), provider=self.id))
+        return items
 
     def _search_sync(self, query: str, limit: int) -> list[dict]:
         from ddgs import DDGS

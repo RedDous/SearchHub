@@ -93,3 +93,12 @@ def test_merge_extract_error_item_surfaces_when_no_success():
     outcomes = [Outcome("exa", [ExtractItem(url="https://a.com", error="site blocked", provider="exa")])]
     merged = merge_extract(outcomes, ["https://a.com"], {"exa": prov})
     assert merged[0].error == "site blocked"
+
+
+def test_merge_search_skips_items_without_url():
+    item_ok = SearchItem(title="ok", url="https://a.example", provider="ddg")
+    item_empty = SearchItem(title="", url="", provider="ddg")
+    outcome = Outcome(provider_id="ddg", items=[item_empty, item_ok], error=None, took_ms=1.0)
+    merged = merge_search([outcome], 10, {})
+    assert len(merged) == 1
+    assert merged[0].url == "https://a.example"

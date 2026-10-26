@@ -133,19 +133,22 @@ const HistoryExpand = defineComponent({
         const isSearch = row.capability === 'search'
         const openKey = `${id}:${i}`
         const opened = !!itemOpen.value[openKey]
+        const label = it.title?.trim() || it.description?.trim() || it.url?.trim()
         const head = h(
           'span',
           { class: 'full-item-head-text' },
-          isSearch ? `${i + 1}. ${it.title ?? it.url}` : it.url,
+          isSearch ? `${i + 1}. ${label || t('history.emptyItem')}` : (it.url || t('history.emptyItem')),
         )
         const chars = isSearch ? (it.description ?? '').length : (it.content ?? '').length
         const chartTag = h('span', { class: 'full-item-chars' }, `${chars} ${t('history.chars')}`)
         const urlLine = h('div', { class: 'full-item-url-line' }, [
           it.provider ? h('span', { class: 'full-item-provider' }, it.provider) : null,
           chartTag,
-          isSearch
-            ? h('a', { class: 'full-item-url', href: it.url, target: '_blank', rel: 'noopener' }, it.url)
-            : h('span', { class: 'full-item-url' }, it.url),
+          it.url
+            ? isSearch
+              ? h('a', { class: 'full-item-url', href: it.url, target: '_blank', rel: 'noopener' }, it.url)
+              : h('span', { class: 'full-item-url' }, it.url)
+            : h('span', { class: 'full-item-url text-muted' }, '—'),
         ])
         const body = isSearch
           ? [
