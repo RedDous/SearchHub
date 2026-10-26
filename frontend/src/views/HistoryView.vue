@@ -176,7 +176,9 @@ const HistoryExpand = defineComponent({
               : entries === null
                 ? h('div', { class: 'detail-content' }, [h('span', { class: 'loading-text' }, t('common.failed'))])
                 : h('div', { class: 'detail-content' }, [
-                    h('div', { class: 'full-list' }, entries.map(renderItem)),
+                    entries.length
+                      ? h('div', { class: 'full-list' }, entries.map(renderItem))
+                      : h('span', { class: 'loading-text' }, t('history.emptyResponse')),
                   ])
             : h('div', { class: 'detail-content' }, [
                 h(NCode, { code: row.response_preview, wordWrap: true }),
@@ -230,14 +232,28 @@ const columns = computed<DataTableColumns<HistoryRow>>(() => [
   {
     title: t('history.provider'),
     key: 'providers',
-    render: (row) =>
-      h(
+    render: (row) => {
+      const parts = (row.providers || '').split(',').filter(Boolean)
+      if (!parts.length) {
+        // 缓存命中：未实际调用任何供应商
+        return h(
+          'div',
+          { class: 'providers-tags' },
+          [
+            row.cache_hit
+              ? h(NTag, { size: 'small', bordered: false, type: 'info' }, { default: () => t('history.cacheServed') })
+              : h('span', { class: 'text-muted' }, '—'),
+          ],
+        )
+      }
+      return h(
         'div',
         { class: 'providers-tags' },
-        (row.providers || '').split(',').filter(Boolean).map((p) =>
+        parts.map((p) =>
           h(NTag, { size: 'small', bordered: false }, { default: () => p }),
         ),
-      ),
+      )
+    },
   },
   {
     title: t('history.caller'),
