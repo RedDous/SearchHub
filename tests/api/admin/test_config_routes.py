@@ -78,8 +78,68 @@ def test_provider_test_search_probe(admin_client):
     assert r.status_code == 200
     body = r.json()
     assert body["success"] is True
-    assert body["data"]["capability"] == "search"
-    assert body["data"]["count"] == 1
+    assert body["data"]["results"][0]["capability"] == "search"
+    assert body["data"]["results"][0]["count"] == 1
+
+
+def test_provider_test_runs_all_capabilities(admin_client, monkeypatch):
+    from searchhub.models import ExtractItem, SearchItem
+    from searchhub.providers.exa import ExaProvider
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider=self.id)]
+
+    async def fake_extract(self, urls, **kw):
+        return [ExtractItem(url=urls[0], content="ok", provider=self.id)]
+
+    monkeypatch.setattr(ExaProvider, "search", fake_search)
+    monkeypatch.setattr(ExaProvider, "extract", fake_extract)
+    admin_client.post("/api/admin/providers", json={
+        "id": "exa", "type": "exa", "capabilities": ["search", "extract"],
+    })
+    r = admin_client.post("/api/admin/providers/exa/test")
+    assert r.status_code == 200
+    caps = {x["capability"] for x in r.json()["data"]["results"]}
+    assert caps == {"search", "extract"}
+
+
+def test_extract_item_error_marks_test_failed(admin_client, monkeypatch):
+    from searchhub.models import ExtractItem
+    from searchhub.providers.trafilatura_py import TrafilaturaProvider
+
+    async def fake_extract(self, urls, **kw):
+        return [ExtractItem(url=urls[0], error="blocked", provider=self.id)]
+
+    monkeypatch.setattr(TrafilaturaProvider, "extract", fake_extract)
+    admin_client.post("/api/admin/providers", json={
+        "id": "trafilatura", "type": "trafilatura", "capabilities": ["extract"],
+    })
+    r = admin_client.post("/api/admin/providers/trafilatura/test")
+    assert r.json()["data"]["results"][0]["success"] is False
+
+
+def test_provider_status_reports_per_capability_tests(admin_client, monkeypatch):
+    from searchhub.models import ExtractItem, SearchItem
+    from searchhub.providers.exa import ExaProvider
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider=self.id)]
+
+    async def fake_extract(self, urls, **kw):
+        return [ExtractItem(url=urls[0], error="blocked", provider=self.id)]
+
+    monkeypatch.setattr(ExaProvider, "search", fake_search)
+    monkeypatch.setattr(ExaProvider, "extract", fake_extract)
+    admin_client.post("/api/admin/providers", json={
+        "id": "exa", "type": "exa", "capabilities": ["search", "extract"],
+    })
+    admin_client.post("/api/admin/providers/exa/keys", json={"key": "exa-test-key"})
+    assert admin_client.post("/api/admin/providers/exa/test").status_code == 200
+    st = admin_client.get("/api/admin/config").json()["data"]["provider_status"]["exa"]
+    assert set(st["tests"]) == {"search", "extract"}
+    assert st["tests"]["search"]["success"] is True
+    assert st["tests"]["extract"]["success"] is False
+    assert st["status"] == "failed"
 
 
 def test_settings_partial_update(admin_client):
@@ -195,7 +255,7 @@ def test_test_draft_known_type(admin_client):
     assert r.status_code == 200
     body = r.json()
     assert body["success"] is True
-    assert body["data"]["capability"] == "search"
+    assert body["data"]["results"][0]["capability"] == "search"
 
 
 def test_test_draft_unknown_type_rejected(admin_client):
