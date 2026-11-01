@@ -568,6 +568,82 @@ def test_create_provider_with_type_and_custom_id(admin_client):
     assert cfg["providers"][0]["id"] == "exa-work"
 
 
+def test_colliding_canonical_prefix_create_is_atomic(admin_client, data_dir):
+    from searchhub.config import ConfigService
+
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "exa-work", "type": "exa", "capabilities": ["search"],
+    }).status_code == 200
+    assert admin_client.post("/api/admin/providers/exa-work/keys", json={
+        "key": "exa-test-key",
+    }).status_code == 200
+
+    r = admin_client.post("/api/admin/providers", json={
+        "id": "exa_work", "type": "exa", "capabilities": ["search"],
+    })
+    assert r.status_code == 400
+    assert "canonical key prefix" in r.json()["error"]
+
+    cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
+    assert [p["id"] for p in cfg["providers"]] == ["exa-work"]
+    cs = ConfigService(data_dir)
+    cs.load()
+    assert cs.provider_keys("exa_work") == []
+    assert cs.provider_keys("exa-work") == ["exa-test-key"]
+    assert admin_client.post("/api/admin/providers/exa_work/keys", json={
+        "key": "alias-key",
+    }).status_code == 400
+    assert admin_client.delete("/api/admin/providers/exa_work/keys/0").status_code == 400
+    assert cs.provider_keys("exa-work") == ["exa-test-key"]
+    assert admin_client.put("/api/admin/settings", json={
+        "cache": {"enabled": True},
+    }).status_code == 200
+
+
+def test_invalid_options_do_not_mutate_live_config(admin_client):
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "exa-work", "type": "exa", "capabilities": ["search"], "weight": 10,
+    }).status_code == 200
+
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "tavily", "type": "tavily", "capabilities": ["search"],
+        "options": {"bogus": 1},
+    }).status_code == 400
+    cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
+    assert [p["id"] for p in cfg["providers"]] == ["exa-work"]
+
+    assert admin_client.put("/api/admin/providers/exa-work", json={
+        "id": "exa-work", "type": "exa", "capabilities": ["search"],
+        "weight": 99, "options": {"bogus": 1},
+    }).status_code == 400
+    cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
+    assert cfg["providers"][0]["weight"] == 10
+
+
+def test_provider_test_invalid_stored_options_returns_400(admin_client, data_dir):
+    from fastapi.testclient import TestClient
+
+    from searchhub.api.app import create_app
+    from searchhub.config import ConfigService
+
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "ddg", "type": "ddg", "capabilities": ["search"],
+    }).status_code == 200
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.providers[0].options = {"bogus": 1}
+    cs.save_config(cfg)
+
+    with TestClient(create_app(data_dir), raise_server_exceptions=False) as client:
+        login = client.post("/api/admin/login",
+                            json={"username": "admin", "password": "testpass123"})
+        assert login.status_code == 200
+        r = client.post("/api/admin/providers/ddg/test")
+    assert r.status_code == 400
+    assert "invalid options" in r.json()["error"]
+
+
 def test_create_provider_unknown_type_rejected(admin_client):
     r = admin_client.post("/api/admin/providers", json={
         "id": "nope", "type": "nope", "capabilities": ["search"],

@@ -174,7 +174,17 @@ class ConfigService:
     def secrets(self) -> dict[str, str]:
         return self._secrets
 
+    def _key_prefix_alias(self, provider_id: str) -> str | None:
+        prefix = key_prefix_for(provider_id)
+        return next(
+            (p.id for p in self.get().providers
+             if p.id != provider_id and key_prefix_for(p.id) == prefix),
+            None,
+        )
+
     def provider_keys(self, provider_id: str) -> list[str]:
+        if self._key_prefix_alias(provider_id) is not None:
+            return []
         prefix = key_prefix_for(provider_id)
         pairs = [
             (int(k[len(prefix):]), v)
@@ -218,6 +228,11 @@ class ConfigService:
         key = key.strip()
         if not key:
             raise ValueError("key must not be empty")
+        alias = self._key_prefix_alias(provider_id)
+        if alias is not None:
+            raise ValueError(
+                f"provider id {provider_id!r} conflicts with configured provider {alias!r}"
+            )
         prefix = key_prefix_for(provider_id)
         secrets_map = dict(self._secrets)
         existing = [k for k in secrets_map if k.startswith(prefix) and k[len(prefix):].isdigit()]
@@ -226,6 +241,11 @@ class ConfigService:
         self.save_secrets(secrets_map)
 
     def remove_provider_key(self, provider_id: str, index: int) -> None:
+        alias = self._key_prefix_alias(provider_id)
+        if alias is not None:
+            raise ValueError(
+                f"provider id {provider_id!r} conflicts with configured provider {alias!r}"
+            )
         prefix = key_prefix_for(provider_id)
         pairs = sorted(
             (int(k[len(prefix):]), k)

@@ -108,7 +108,7 @@ git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up 
 
 **Jina 自建 Reader**：把该实例的 Base URL 指向自建服务（例如 `http://192.168.1.10:3000/`）即可，留空则使用云端 `https://r.jina.ai/`。请求地址按 `<base_url>/<目标 URL>` 拼接，因此 Base URL 只需写到服务根路径。
 
-**配置迁移（`type` 字段）**：新模型把实例 ID（`id`）与适配器类型（`type`）分离。旧版 `config.yaml` 中的供应商没有 `type`，加载时会自动补为 `type = id`（例如 `id: exa` → `type: exa`），无需手工修改即可继续运行。`id` 与 `type` 创建后均不可变；如需更换类型，请删除后重建实例。
+**配置迁移（`type` 字段）**：新模型把实例 ID（`id`）与适配器类型（`type`）分离。旧版 `config.yaml` 中的供应商没有 `type`，加载时会自动补为 `type = id`（例如 `id: exa` → `type: exa`），无需手工修改即可继续运行。`id` 必须匹配 `^[A-Za-z][A-Za-z0-9_-]*$`，且所有实例的规范 Key 前缀必须唯一（例如 `exa-work` 与 `exa_work` 都规范化为 `EXA_WORK_KEY_`，不能同时配置）。`id` 与 `type` 创建后均不可变；如需更换类型，请删除后重建实例。
 
 ## 功能接入
 

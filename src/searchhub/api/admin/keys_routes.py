@@ -80,5 +80,7 @@ async def remove_key(provider_id: str, index: int, request: Request, background:
         svc.remove_provider_key(provider_id, index)
     except IndexError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     background.add_task(config_routes._auto_retest, request.app.state.engine, provider_id)
     return {"success": True}

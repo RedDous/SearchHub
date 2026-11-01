@@ -99,7 +99,8 @@ async def create_provider(body: ProviderConfig, request: Request, background: Ba
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
     body.options = _validated_options(body.type, body.options)
-    cfg = svc.get()
+    # Mutate a copy so a rejected save cannot leak into the live config.
+    cfg = svc.get().model_copy(deep=True)
     cfg.providers.append(body)
     _save(svc, cfg)
     background.add_task(_auto_retest, request.app.state.engine, body.id)
@@ -110,7 +111,7 @@ async def create_provider(body: ProviderConfig, request: Request, background: Ba
 async def update_provider(provider_id: str, body: ProviderConfig, request: Request, background: BackgroundTasks):
     svc = request.app.state.engine.config
     svc.maybe_reload()
-    cfg = svc.get()
+    cfg = svc.get().model_copy(deep=True)
     idx = next((i for i, p in enumerate(cfg.providers) if p.id == provider_id), None)
     if idx is None:
         raise HTTPException(status_code=404, detail=f"provider {provider_id} not found")
@@ -139,7 +140,7 @@ async def update_provider(provider_id: str, body: ProviderConfig, request: Reque
 async def delete_provider(provider_id: str, request: Request):
     svc = request.app.state.engine.config
     svc.maybe_reload()
-    cfg = svc.get()
+    cfg = svc.get().model_copy(deep=True)
     new = [p for p in cfg.providers if p.id != provider_id]
     if len(new) == len(cfg.providers):
         raise HTTPException(status_code=404, detail=f"provider {provider_id} not found")
@@ -304,6 +305,7 @@ async def test_provider(provider_id: str, request: Request,
     if pc is None or cls is None:
         raise HTTPException(status_code=404,
                             detail=f"provider {provider_id} not found or unsupported")
+    _validated_options(pc.type, pc.options)
     keys = svc.provider_keys(provider_id)
     specs = _test_specs(cls.schema, pc.capabilities, capability)
     async with httpx.AsyncClient(timeout=10) as http:
@@ -339,7 +341,7 @@ async def test_provider_draft(body: ProviderConfig, request: Request,
 async def update_settings(body: SettingsBody, request: Request):
     svc = request.app.state.engine.config
     svc.maybe_reload()
-    cfg = svc.get()
+    cfg = svc.get().model_copy(deep=True)
     if body.strategy is not None:
         cfg.strategy = body.strategy
     if body.cache is not None:
