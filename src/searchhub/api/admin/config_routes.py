@@ -159,7 +159,8 @@ async def _probe(provider, capability: str, spec: TestSpec) -> dict:
     try:
         if capability == "search":
             items = await asyncio.wait_for(
-                provider.search(spec.query or "searchhub connection test", 1), 10)
+                provider.search(spec.query or "searchhub connection test",
+                                max(1, spec.min_results)), 10)
             count = len(items)
             error = None
             if count < spec.min_results:
@@ -263,6 +264,12 @@ async def _auto_retest(engine, provider_id: str):
         return
     keys = svc.provider_keys(provider_id)
     specs = _test_specs(schema, pc.capabilities)
+    # Drop results for capabilities that are no longer enabled, so a stale
+    # failure cannot keep the provider's aggregate status at "failed".
+    enabled = set(pc.capabilities)
+    for cap in list(engine.provider_tests.get(provider_id, {})):
+        if cap not in enabled:
+            engine.provider_tests[provider_id].pop(cap, None)
     try:
         async with httpx.AsyncClient(timeout=10) as http:
             provider = cls(pc, keys, http)

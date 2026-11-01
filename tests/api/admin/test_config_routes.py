@@ -118,6 +118,65 @@ def test_extract_item_error_marks_test_failed(admin_client, monkeypatch):
     assert r.json()["data"]["results"][0]["success"] is False
 
 
+def test_search_probe_requests_min_results(admin_client, monkeypatch):
+    from dataclasses import replace
+
+    from searchhub.models import SearchItem
+    from searchhub.providers.ddg import DdgProvider
+    from searchhub.providers.schema import TestSpec
+
+    seen: dict[str, int] = {}
+
+    async def fake_search(self, query, limit):
+        seen["limit"] = limit
+        return [SearchItem(title=str(i), url=f"https://x.com/{i}", provider=self.id)
+                for i in range(limit)]
+
+    monkeypatch.setattr(DdgProvider, "search", fake_search)
+    monkeypatch.setattr(DdgProvider, "schema", replace(
+        DdgProvider.schema,
+        tests=(TestSpec(capability="search", query="q", min_results=2),)))
+    admin_client.post("/api/admin/providers",
+                      json={"id": "ddg", "capabilities": ["search"]})
+    r = admin_client.post("/api/admin/providers/ddg/test")
+    result = r.json()["data"]["results"][0]
+    assert seen["limit"] == 2
+    assert result["success"] is True
+    assert result["count"] == 2
+
+
+def test_removing_capability_prunes_stale_test_result(admin_client, monkeypatch):
+    from searchhub.api.admin import config_routes as cr
+    from searchhub.models import ExtractItem, SearchItem
+    from searchhub.providers.exa import ExaProvider
+
+    monkeypatch.setattr(cr, "_auto_retest", cr._REAL_AUTO_RETEST)
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider=self.id)]
+
+    async def fake_extract(self, urls, **kw):
+        return [ExtractItem(url=urls[0], error="blocked", provider=self.id)]
+
+    monkeypatch.setattr(ExaProvider, "search", fake_search)
+    monkeypatch.setattr(ExaProvider, "extract", fake_extract)
+    admin_client.post("/api/admin/providers", json={
+        "id": "exa", "type": "exa", "capabilities": ["search", "extract"],
+    })
+    admin_client.post("/api/admin/providers/exa/keys", json={"key": "exa-test-key"})
+    assert admin_client.post("/api/admin/providers/exa/test").status_code == 200
+    st = admin_client.get("/api/admin/config").json()["data"]["provider_status"]["exa"]
+    assert st["status"] == "failed"
+    assert "extract" in st["tests"]
+    r = admin_client.put("/api/admin/providers/exa", json={
+        "id": "exa", "type": "exa", "capabilities": ["search"],
+    })
+    assert r.status_code == 200
+    st = admin_client.get("/api/admin/config").json()["data"]["provider_status"]["exa"]
+    assert "extract" not in st["tests"]
+    assert st["status"] == "ok"
+
+
 def test_provider_status_reports_per_capability_tests(admin_client, monkeypatch):
     from searchhub.models import ExtractItem, SearchItem
     from searchhub.providers.exa import ExaProvider
