@@ -142,6 +142,9 @@ class SearchHubEngine:
                       timeout: float | None = None, *, token_name: str = "") -> ExtractResponse:
         start = time.monotonic()
         cfg = self.config.get()
+        # Snapshot once per request: lookups and writes must use the same
+        # version even if config is saved while providers are running.
+        config_version = self.config.config_version
         providers_list = self._filter(self._registry_for("extract"), None)
         resp: ExtractResponse | None = None
         if not providers_list:
@@ -157,7 +160,7 @@ class SearchHubEngine:
         if self.cache and cache:
             for url in urls:
                 hit = await self.cache.get(extract_cache_key(
-                    url, fmt, max_chars, self.config.config_version))
+                    url, fmt, max_chars, config_version))
                 if hit is not None:
                     final_items.append(ExtractItem(**json.loads(hit)))
                     cached_any = True
@@ -188,7 +191,7 @@ class SearchHubEngine:
                     if item.error is None:
                         await self.cache.put(
                             extract_cache_key(item.url, fmt, max_chars,
-                                              self.config.config_version),
+                                              config_version),
                             json.dumps(item.model_dump()), cfg.cache.extract_ttl_s)
             final_items.extend(merged)
         if resp is None:

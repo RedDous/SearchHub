@@ -43,6 +43,23 @@ class FakeProvider:
         return [ExtractItem(url=u, content=f"{self.id}:{u}", provider=self.id) for u in urls]
 
 
+class VersionBumpingProvider(FakeProvider):
+    """Provider that saves config (bumping config_version) during extraction."""
+
+    def __init__(self, pid, config_service):
+        super().__init__(pid)
+        self.config_service = config_service
+        self.extract_calls = 0
+
+    async def extract(self, urls, **kw):
+        from searchhub.models import ExtractItem
+        self.extract_calls += 1
+        if self.extract_calls == 1:
+            self.config_service.save_config(self.config_service.get())
+        return [ExtractItem(url=u, content=f"call{self.extract_calls}:{u}",
+                            provider=self.id) for u in urls]
+
+
 def make_engine(data_dir: Path, providers, strategy="fanout"):
     cs = ConfigService(data_dir)
     cs.load()
@@ -125,6 +142,33 @@ async def test_extract_merges_and_caches(data_dir):
     r2 = await eng.extract(["https://x.com"])
     assert r1.success and r1.data[0].content == "a:https://x.com"
     assert r2.meta["cached"] is True
+
+
+@pytest.mark.asyncio
+async def test_extract_uses_config_version_snapshot(data_dir):
+    from searchhub.storage.cache import CacheRepo
+
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.providers = [ProviderConfig(id="a", capabilities=["extract"])]
+    cs.save_config(cfg)
+    provider = VersionBumpingProvider("a", cs)
+    eng = SearchHubEngine(cs, CacheRepo(data_dir / "cache.db"), httpx.AsyncClient())
+    eng._registry = {"a": provider}
+    eng._version = cs.config_version
+
+    r1 = await eng.extract(["https://x.com"])
+    assert r1.meta["cached"] is False
+    assert r1.data[0].content == "call1:https://x.com"
+
+    # Config was saved during the fetch, so the engine now runs under the new
+    # version. Results fetched under the old version must not be served here.
+    eng._registry = {"a": provider}
+    eng._version = cs.config_version
+    r2 = await eng.extract(["https://x.com"])
+    assert r2.meta["cached"] is False
+    assert r2.data[0].content == "call2:https://x.com"
 
 
 def test_record_test_keeps_capabilities_separate(data_dir):
