@@ -124,6 +124,24 @@ def test_jina_prefixed_key_into_tavily_reports_wrong_provider(admin_client):
     assert "jina" in r.json()["error"]
 
 
+def test_key_prefix_validation_uses_type_for_custom_id(admin_client):
+    admin_client.post("/api/admin/providers", json={
+        "id": "tavily-work", "type": "tavily", "capabilities": ["search"],
+    })
+    r = admin_client.post("/api/admin/providers/tavily-work/keys",
+                          json={"key": "not-a-tavily-key"})
+    assert r.status_code == 400
+
+
+def test_key_prefix_validation_accepts_type_prefix_for_custom_id(admin_client):
+    admin_client.post("/api/admin/providers", json={
+        "id": "tavily-work", "type": "tavily", "capabilities": ["search"],
+    })
+    r = admin_client.post("/api/admin/providers/tavily-work/keys",
+                          json={"key": "tvly-abc123"})
+    assert r.status_code == 200
+
+
 def test_token_rename_updates_caller_name(admin_client):
     created = admin_client.post("/api/admin/tokens", json={"name": "opencode"}).json()["data"]
     r = admin_client.patch(f"/api/admin/tokens/{created['id']}", json={"name": "opencode-mcp"})

@@ -1,18 +1,75 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import DdgOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 
 class DdgProvider(Provider):
     id = "ddg"
     capabilities = frozenset({"search"})
-    REQUIRES_KEY = False
-    schema = ProviderSchema(type="ddg", name="DuckDuckGo", capabilities=("search",),
-                            show_max_results=True)
+    options_model = DdgOptions
+    schema = ProviderSchema(
+        type="ddg",
+        name="DuckDuckGo",
+        capabilities=("search",),
+        auth=AuthSpec(mode="none"),
+        fields=(
+            FieldSpec(
+                key="region",
+                label="providers.fields.ddg.region",
+                help="providers.fields.ddg.region.help",
+                type="string",
+                default=None,
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="safesearch",
+                label="providers.fields.ddg.safesearch",
+                help="providers.fields.ddg.safesearch.help",
+                type="enum",
+                default="moderate",
+                choices=("on", "moderate", "off"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="timelimit",
+                label="providers.fields.ddg.timelimit",
+                help="providers.fields.ddg.timelimit.help",
+                type="enum",
+                default="",
+                choices=("", "d", "w", "m", "y"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="backend",
+                label="providers.fields.ddg.backend",
+                help="providers.fields.ddg.backend.help",
+                type="string",
+                default=None,
+                capability="search",
+                group="advanced",
+                advanced=True,
+            ),
+        ),
+        tests=(
+            TestSpec(capability="search", query="searchhub connection test"),
+        ),
+        description_key="providers.desc.ddg",
+        docs_url="https://github.com/deedy5/ddgs",
+    )
 
     async def extract(self, urls: list[str], *, fmt: str = "markdown",
                       max_chars: int = 15000) -> list[ExtractItem]:
@@ -39,4 +96,15 @@ class DdgProvider(Provider):
     def _search_sync(self, query: str, limit: int) -> list[dict]:
         from ddgs import DDGS
 
-        return DDGS().text(query, max_results=limit)
+        opts = self.options
+        kwargs: dict[str, Any] = {
+            "max_results": limit,
+            "safesearch": opts.safesearch,
+        }
+        if opts.region:
+            kwargs["region"] = opts.region
+        if opts.timelimit:
+            kwargs["timelimit"] = opts.timelimit
+        if opts.backend:
+            kwargs["backend"] = opts.backend
+        return DDGS().text(query, **kwargs)

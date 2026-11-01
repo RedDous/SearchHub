@@ -48,3 +48,48 @@ async def test_search_is_offloaded_to_thread(monkeypatch):
     monkeypatch.setattr("ddgs.DDGS", lambda *a, **kw: TDDGS([]))
     await make_provider().search("python", 3)
     assert seen["thread"] != threading.main_thread().name
+
+
+def make_provider_with_options(**options):
+    cfg = ProviderConfig(id="ddg", type="ddg", capabilities=["search"],
+                         options=options)
+    return DdgProvider(cfg, [], None)
+
+
+def capture_kwargs(monkeypatch):
+    captured = {}
+
+    class CapturingDDGS:
+        def text(self, query, **kwargs):
+            captured.update(kwargs)
+            return []
+
+    monkeypatch.setattr("ddgs.DDGS", lambda *a, **kw: CapturingDDGS())
+    return captured
+
+
+def test_search_passes_configured_kwargs(monkeypatch):
+    captured = capture_kwargs(monkeypatch)
+    make_provider_with_options(region="cn-zh", safesearch="off")._search_sync("q", 5)
+    assert captured["region"] == "cn-zh"
+    assert captured["safesearch"] == "off"
+
+
+def test_search_passes_all_configured_kwargs(monkeypatch):
+    captured = capture_kwargs(monkeypatch)
+    make_provider_with_options(
+        region="us-en", safesearch="on", timelimit="w", backend="duckduckgo",
+    )._search_sync("q", 5)
+    assert captured == {
+        "max_results": 5,
+        "region": "us-en",
+        "safesearch": "on",
+        "timelimit": "w",
+        "backend": "duckduckgo",
+    }
+
+
+def test_search_omits_unset_kwargs_with_default_options(monkeypatch):
+    captured = capture_kwargs(monkeypatch)
+    make_provider()._search_sync("q", 5)
+    assert captured == {"max_results": 5, "safesearch": "moderate"}

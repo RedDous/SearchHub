@@ -4,7 +4,14 @@ import re
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import JinaOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    EndpointSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 _TITLE_RE = re.compile(r"^#+\s*(.+?)\s*$", re.M)
 
@@ -12,11 +19,75 @@ _TITLE_RE = re.compile(r"^#+\s*(.+?)\s*$", re.M)
 class JinaProvider(Provider):
     id = "jina"
     capabilities = frozenset({"extract"})
-    REQUIRES_KEY = False
     BASE = "https://r.jina.ai/"
-    schema = ProviderSchema(type="jina", name="Jina Reader", capabilities=("extract",),
-                            optional_key=True, key_pool_params="full",
-                            key_prefix="jina_")
+    options_model = JinaOptions
+    schema = ProviderSchema(
+        type="jina",
+        name="Jina Reader",
+        capabilities=("extract",),
+        auth=AuthSpec(mode="bearer", optional=True, key_prefix="jina_"),
+        endpoint=EndpointSpec(default="https://r.jina.ai/", overridable=True, required=False),
+        fields=(
+            FieldSpec(
+                key="target_selector",
+                label="providers.fields.jina.target_selector",
+                help="providers.fields.jina.target_selector.help",
+                type="string",
+                default=None,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="wait_for_selector",
+                label="providers.fields.jina.wait_for_selector",
+                help="providers.fields.jina.wait_for_selector.help",
+                type="string",
+                default=None,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="timeout_s",
+                label="providers.fields.jina.timeout_s",
+                help="providers.fields.jina.timeout_s.help",
+                type="int",
+                default=None,
+                capability="extract",
+                group="advanced",
+                min=1,
+                max=120,
+                advanced=True,
+            ),
+            FieldSpec(
+                key="no_cache",
+                label="providers.fields.jina.no_cache",
+                help="providers.fields.jina.no_cache.help",
+                type="bool",
+                default=False,
+                capability="extract",
+                group="advanced",
+                advanced=True,
+            ),
+        ),
+        tests=(
+            TestSpec(
+                capability="extract",
+                urls=("https://example.com",),
+                expect_content=True,
+            ),
+        ),
+        key_pool_params="full",
+        description_key="providers.desc.jina",
+        docs_url="https://jina.ai/reader/",
+    )
+
+    def _base_url(self) -> str:
+        return self.cfg.base_url or self.BASE
+
+    def _build_url(self, url: str) -> str:
+        # The target URL is absolute, so urljoin would discard the base; the
+        # Reader API expects it appended verbatim.
+        return self._base_url().rstrip("/") + "/" + url.lstrip("/")
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
         raise NotImplementedError
@@ -30,11 +101,21 @@ class JinaProvider(Provider):
 
     async def _extract_one(self, url: str, fmt: str, max_chars: int) -> ExtractItem:
         headers = {"X-Return-Format": fmt}
+        opts = self.options
+        if opts is not None:
+            if opts.target_selector:
+                headers["X-Target-Selector"] = opts.target_selector
+            if opts.wait_for_selector:
+                headers["X-Wait-For-Selector"] = opts.wait_for_selector
+            if opts.timeout_s is not None:
+                headers["X-Timeout"] = str(opts.timeout_s)
+            if opts.no_cache:
+                headers["X-No-Cache"] = "true"
         try:
             async with self._use_key() as k:
                 if k is not None:
                     headers["Authorization"] = f"Bearer {k}"
-                resp = await self.http.get(self.BASE + url, headers=headers)
+                resp = await self.http.get(self._build_url(url), headers=headers)
             if not 200 <= resp.status_code < 300:
                 if k is not None:
                     self._report(k, resp.status_code)

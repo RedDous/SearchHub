@@ -5,8 +5,58 @@ export interface KeyPoolCfg {
   rps_limit: number
   cooldown_s: number
 }
+export type CapabilityName = 'search' | 'extract'
+export type AuthMode = 'none' | 'bearer' | 'header' | 'query'
+export type FieldType = 'string' | 'text' | 'int' | 'float' | 'bool' | 'enum' | 'string_list' | 'secret'
+export type KeyPoolParams = 'none' | 'rps' | 'full'
+
+export interface AuthSpec {
+  mode: AuthMode
+  header_name: string | null
+  query_param: string | null
+  required: boolean
+  optional: boolean
+  key_prefix: string | null
+  hint: string
+}
+export interface EndpointSpec {
+  default: string | null
+  overridable: boolean
+  required: boolean
+  label: string
+  placeholder: string
+}
+export interface FieldSpec {
+  key: string
+  /** i18n key; translate in the view, not here. */
+  label: string
+  type: FieldType
+  default?: unknown
+  choices?: string[]
+  required?: boolean
+  capability?: CapabilityName | null
+  group?: string
+  /** i18n key; translate in the view, not here. */
+  help?: string
+  placeholder?: string
+  min?: number | null
+  max?: number | null
+  step?: number | null
+  advanced?: boolean
+  visible_when?: Record<string, unknown> | null
+}
+export interface TestSpec {
+  capability: CapabilityName
+  query: string | null
+  urls: string[]
+  max_chars: number
+  min_results: number
+  expect_content: boolean
+}
+
 export interface ProviderCfg {
   id: string
+  type: string
   capabilities: string[]
   enabled: boolean
   weight: number
@@ -20,10 +70,17 @@ export interface ProviderType {
   type: string
   name: string
   capabilities: string[]
+  key_pool_params: KeyPoolParams
+  auth: AuthSpec
+  endpoint: EndpointSpec
+  fields: FieldSpec[]
+  tests: TestSpec[]
+  description_key?: string | null
+  docs_url?: string | null
   requires_key: boolean
   optional_key: boolean
   requires_base_url: boolean
-  key_pool_params: 'none' | 'rps' | 'full'
+  key_prefix?: string | null
   show_max_results: boolean
   show_options: boolean
 }
@@ -34,6 +91,13 @@ export interface TokenInfo {
   revoked: boolean
   hash_prefix: string
 }
+export interface ProviderTestResult {
+  capability: string
+  success: boolean
+  count: number
+  took_ms: number
+  error?: string
+}
 export interface ProviderTest {
   success: boolean
   capability?: string
@@ -43,11 +107,13 @@ export interface ProviderTest {
   at: number
 }
 
-export type ProviderStatusKind = 'ok' | 'failed' | 'untested' | 'missing_key' | 'missing_base_url'
+export type ProviderStatusKind = 'ok' | 'failed' | 'untested' | 'invalid_config' | 'missing_key' | 'missing_base_url'
 
 export interface ProviderStatus {
   status: ProviderStatusKind
+  /** Latest test across capabilities (kept for compatibility). */
   test: ProviderTest | null
+  tests: Record<string, ProviderTest>
 }
 
 export interface AppConfigView {
@@ -97,9 +163,9 @@ export const adminApi = {
     request<null>(`/api/admin/providers/${id}`, { method: 'PUT', body: cfg }),
   deleteProvider: (id: string) => request<null>(`/api/admin/providers/${id}`, { method: 'DELETE' }),
   testProvider: (id: string) =>
-    request<{ capability: string; count: number; took_ms: number }>(`/api/admin/providers/${id}/test`, { method: 'POST' }),
+    request<{ results: ProviderTestResult[] }>(`/api/admin/providers/${id}/test`, { method: 'POST' }),
   testProviderConfig: (cfg: ProviderCfg) =>
-    request<{ capability: string; count: number; took_ms: number }>('/api/admin/providers/test', { method: 'POST', body: cfg }),
+    request<{ results: ProviderTestResult[] }>('/api/admin/providers/test', { method: 'POST', body: cfg }),
   listKeys: (id: string) => request<{ keys: KeyEntry[] }>(`/api/admin/providers/${id}/keys`),
   addKey: (id: string, key: string) => request<null>(`/api/admin/providers/${id}/keys`, { method: 'POST', body: { key } }),
   deleteKey: (id: string, index: number) => request<null>(`/api/admin/providers/${id}/keys/${index}`, { method: 'DELETE' }),

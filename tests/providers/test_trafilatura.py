@@ -17,7 +17,7 @@ async def test_extract_uses_fetch_and_extract(monkeypatch):
         calls["url"] = url
         return "<html><head><title>TT</title></head><body><p>Hello</p></body></html>"
 
-    def fake_extract(html, output_format="txt"):
+    def fake_extract(html, output_format="txt", **kwargs):
         calls["fmt"] = output_format
         return "Hello"
 
@@ -51,3 +51,20 @@ async def test_extract_offloaded_to_thread(monkeypatch):
     monkeypatch.setattr("trafilatura.fetch_url", fake_fetch)
     await make_provider().extract(["https://a.com"])
     assert seen["t"] != threading.main_thread().name
+
+
+def test_extract_passes_options(monkeypatch):
+    captured = {}
+    monkeypatch.setattr("trafilatura.fetch_url", lambda url: "<html><title>T</title><p>x</p></html>")
+
+    def fake_extract(html, **kwargs):
+        captured.update(kwargs)
+        return "body"
+
+    monkeypatch.setattr("trafilatura.extract", fake_extract)
+    cfg = ProviderConfig(id="trafilatura", type="trafilatura", capabilities=["extract"],
+                         options={"favor_precision": True, "target_language": "zh"})
+    TrafilaturaProvider(cfg, [], None)._extract_sync("https://a.com", "markdown")
+    assert captured["favor_precision"] is True
+    assert captured["target_language"] == "zh"
+    assert captured["output_format"] == "markdown"

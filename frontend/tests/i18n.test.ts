@@ -22,6 +22,11 @@ describe('i18n', () => {
     expect(localStorage.getItem('sh_lang')).toBe('en')
   })
 
+  it('has invalid provider configuration status in both languages', () => {
+    expect(messages.zh['providers.invalidConfig']).toBe('配置无效')
+    expect(messages.en['providers.invalidConfig']).toBe('Invalid config')
+  })
+
   it('has force-change-password keys in both languages', () => {
     expect(messages.zh['setup.forceChangeTitle']).toBe('请修改默认密码')
     expect(messages.zh['setup.forceChangeDesc']).toBe('您正在使用默认密码，出于安全考虑请立即修改。')

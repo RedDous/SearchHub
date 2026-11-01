@@ -10,11 +10,16 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 CAPABILITIES = ("search", "extract")
 _KEY_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 _BACKUP_COUNT = 5
+
+
+def key_prefix_for(provider_id: str) -> str:
+    """Env-var-safe secret prefix for an instance id (``exa-work`` -> ``EXA_WORK_KEY_``)."""
+    return re.sub(r"[^A-Z0-9]+", "_", provider_id.upper()) + "_KEY_"
 
 
 def _scrypt_hash(password: str) -> str:
@@ -42,7 +47,8 @@ class KeyPoolConfig(BaseModel):
 
 
 class ProviderConfig(BaseModel):
-    id: str
+    id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]*$")
+    type: str = ""
     capabilities: list[str]
     enabled: bool = True
     weight: int = Field(default=10, ge=1, le=100)
@@ -51,6 +57,33 @@ class ProviderConfig(BaseModel):
     base_url: str | None = None
     key_pool: KeyPoolConfig = KeyPoolConfig()
     options: dict[str, Any] = {}
+
+    @model_validator(mode="after")
+    def _default_type(self) -> "ProviderConfig":
+        if not self.type:
+            # 用 object.__setattr__ 赋值，保持 model_fields_set 准确：
+            # 省略 type 时不能让它看起来像显式传入（admin API 依赖这一点判断类型不可变）。
+            object.__setattr__(self, "type", self.id)
+        return self
+
+
+def _duplicate_provider_id(providers: list[ProviderConfig]) -> str | None:
+    seen: set[str] = set()
+    for p in providers:
+        if p.id in seen:
+            return p.id
+        seen.add(p.id)
+    return None
+
+
+def _duplicate_provider_key_prefix(providers: list[ProviderConfig]) -> str | None:
+    seen: set[str] = set()
+    for p in providers:
+        prefix = key_prefix_for(p.id)
+        if prefix in seen:
+            return prefix
+        seen.add(prefix)
+    return None
 
 
 class StrategyConfig(BaseModel):
@@ -95,6 +128,16 @@ class AppConfig(BaseModel):
     history: HistoryConfig = HistoryConfig()
     providers: list[ProviderConfig] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _unique_provider_ids(self) -> "AppConfig":
+        duplicate = _duplicate_provider_id(self.providers)
+        if duplicate is not None:
+            raise ValueError(f"duplicate provider id: {duplicate!r}")
+        duplicate_prefix = _duplicate_provider_key_prefix(self.providers)
+        if duplicate_prefix is not None:
+            raise ValueError(f"duplicate canonical key prefix: {duplicate_prefix!r}")
+        return self
+
     def provider(self, provider_id: str) -> ProviderConfig | None:
         return next((p for p in self.providers if p.id == provider_id), None)
 
@@ -131,8 +174,18 @@ class ConfigService:
     def secrets(self) -> dict[str, str]:
         return self._secrets
 
+    def _key_prefix_alias(self, provider_id: str) -> str | None:
+        prefix = key_prefix_for(provider_id)
+        return next(
+            (p.id for p in self.get().providers
+             if p.id != provider_id and key_prefix_for(p.id) == prefix),
+            None,
+        )
+
     def provider_keys(self, provider_id: str) -> list[str]:
-        prefix = f"{provider_id.upper()}_KEY_"
+        if self._key_prefix_alias(provider_id) is not None:
+            return []
+        prefix = key_prefix_for(provider_id)
         pairs = [
             (int(k[len(prefix):]), v)
             for k, v in self._secrets.items()
@@ -175,7 +228,12 @@ class ConfigService:
         key = key.strip()
         if not key:
             raise ValueError("key must not be empty")
-        prefix = f"{provider_id.upper()}_KEY_"
+        alias = self._key_prefix_alias(provider_id)
+        if alias is not None:
+            raise ValueError(
+                f"provider id {provider_id!r} conflicts with configured provider {alias!r}"
+            )
+        prefix = key_prefix_for(provider_id)
         secrets_map = dict(self._secrets)
         existing = [k for k in secrets_map if k.startswith(prefix) and k[len(prefix):].isdigit()]
         next_idx = max([int(k[len(prefix):]) for k in existing], default=0) + 1
@@ -183,7 +241,12 @@ class ConfigService:
         self.save_secrets(secrets_map)
 
     def remove_provider_key(self, provider_id: str, index: int) -> None:
-        prefix = f"{provider_id.upper()}_KEY_"
+        alias = self._key_prefix_alias(provider_id)
+        if alias is not None:
+            raise ValueError(
+                f"provider id {provider_id!r} conflicts with configured provider {alias!r}"
+            )
+        prefix = key_prefix_for(provider_id)
         pairs = sorted(
             (int(k[len(prefix):]), k)
             for k in self._secrets
@@ -207,6 +270,12 @@ class ConfigService:
             for c in p.capabilities:
                 if c not in CAPABILITIES:
                     raise ValueError(f"invalid capability: {c!r}")
+        duplicate = _duplicate_provider_id(cfg.providers)
+        if duplicate is not None:
+            raise ValueError(f"duplicate provider id: {duplicate!r}")
+        duplicate_prefix = _duplicate_provider_key_prefix(cfg.providers)
+        if duplicate_prefix is not None:
+            raise ValueError(f"duplicate canonical key prefix: {duplicate_prefix!r}")
         self._write_yaml(cfg)
         self._cfg = cfg
 

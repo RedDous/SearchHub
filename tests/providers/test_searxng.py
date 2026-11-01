@@ -45,3 +45,57 @@ async def test_search_3xx_raises():
 async def test_search_without_base_url_raises():
     with pytest.raises(ProviderError):
         await make_provider(base_url=None).search("python", 3)
+
+
+def make_provider_with_options(**options):
+    cfg = ProviderConfig(id="searxng", type="searxng", capabilities=["search"],
+                         base_url="http://searxng:8080", options=options)
+    return SearxngProvider(cfg, [], httpx.AsyncClient())
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_search_passes_configured_params():
+    route = respx.get("http://searxng:8080/search").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    provider = make_provider_with_options(
+        categories=["general", "news"], language="zh-CN",
+    )
+    await provider.search("q", 5)
+    params = route.calls[0].request.url.params
+    assert params["categories"] == "general,news"
+    assert params["language"] == "zh-CN"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_search_passes_safesearch_time_range_and_engines():
+    route = respx.get("http://searxng:8080/search").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    provider = make_provider_with_options(
+        safesearch="2", time_range="week", engines=["google", "bing"],
+    )
+    await provider.search("q", 5)
+    params = route.calls[0].request.url.params
+    assert params["safesearch"] == "2"
+    assert params["time_range"] == "week"
+    assert params["engines"] == "google,bing"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_search_default_options_keep_existing_params():
+    route = respx.get("http://searxng:8080/search").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    await make_provider().search("python", 3)
+    params = route.calls[0].request.url.params
+    assert params["q"] == "python"
+    assert params["format"] == "json"
+    assert params["safesearch"] == "1"
+    assert params["categories"] == "general"
+    assert params["language"] == "all"
+    assert "time_range" not in params
+    assert "engines" not in params

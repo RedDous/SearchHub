@@ -432,21 +432,24 @@ git commit -m "feat: support provider type/id and instance capabilities at runti
 
 ---
 
-### Task 7: Per-capability test status in the engine
+### Task 7: Per-capability test status and instance identity
 
 **Files:**
 - Modify: `src/searchhub/orchestrator.py:35-46`
 - Modify: `src/searchhub/orchestrator.py:108-110`
 - Modify: `src/searchhub/orchestrator.py:179-181`
 - Modify: `src/searchhub/orchestrator.py:255-273`
+- Modify: `src/searchhub/providers/base.py` (`Provider.__init__` sets `self.id = cfg.id`)
 - Test: `tests/test_orchestrator.py`
+- Test: `tests/providers/test_registry.py`
 
 **Interfaces:**
 - Produces: `record_test(provider_id: str, capability: str, *, success: bool, count: int, took_ms: float, error: str | None = None) -> None`.
 - Produces: `provider_tests: dict[str, dict[str, dict[str, Any]]]`.
-- `provider_status()` entries gain `"tests": {capability: test}`.
+- `provider_status()` entries gain `"tests": {capability: test}` and use `p.cfg.capabilities` / `p.cfg.type` for instance-level reporting.
+- `Provider.id` is the instance ID (`cfg.id`); the class-level `id` remains the adapter type for code that reads the class attribute.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
 ```python
 # tests/test_orchestrator.py
@@ -460,25 +463,37 @@ def test_record_test_keeps_capabilities_separate(data_dir):
     assert eng.provider_tests["exa"]["extract"]["success"] is False
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+```python
+# tests/providers/test_registry.py
+def test_provider_uses_instance_id(cfg):
+    cfg.providers = [
+        ProviderConfig(id="exa-work", type="exa", capabilities=["search"]),
+    ]
+    registry = build_registry(cfg, {"EXA_WORK_KEY_1": "k1"}, httpx.AsyncClient())
+    assert registry["exa-work"].id == "exa-work"
+    assert registry["exa-work"].cfg.type == "exa"
+```
 
-Run: `pytest tests/test_orchestrator.py::test_record_test_keeps_capabilities_separate -v`
-Expected: FAIL because `record_test` still takes `capability` as a keyword and overwrites one slot.
+- [ ] **Step 2: Run tests to verify they fail**
 
-- [ ] **Step 3: Implement the new status shape**
+Run: `pytest tests/test_orchestrator.py::test_record_test_keeps_capabilities_separate tests/providers/test_registry.py::test_provider_uses_instance_id -v`
+Expected: FAIL because `record_test` still takes `capability` as a keyword, `provider_status` uses class capabilities, and `Provider.id` is still the type name.
 
-Update the two real-call sites to pass `capability` positionally. Update `provider_status()` to include `tests`. Keep the existing `stats` block unchanged.
+- [ ] **Step 3: Implement the new status shape and identity**
 
-- [ ] **Step 4: Run orchestrator tests**
+Update the two real-call sites to pass `capability` positionally. Update `provider_status()` to include `tests`, use `p.cfg.capabilities`, and include `type`. In `Provider.__init__`, set `self.id = cfg.id` so results and errors identify the instance; keep the class-level `id` as the adapter type.
 
-Run: `pytest tests/test_orchestrator.py -v`
+- [ ] **Step 4: Run tests**
+
+Run: `pytest tests/test_orchestrator.py tests/providers/test_registry.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/searchhub/orchestrator.py tests/test_orchestrator.py
-git commit -m "feat: record provider test status per capability"
+git add src/searchhub/orchestrator.py src/searchhub/providers/base.py \
+  tests/test_orchestrator.py tests/providers/test_registry.py
+git commit -m "feat: record provider test status per capability and use instance ids"
 ```
 
 ---
@@ -489,13 +504,17 @@ git commit -m "feat: record provider test status per capability"
 - Modify: `src/searchhub/api/admin/config_routes.py:53-108`
 - Modify: `src/searchhub/api/admin/config_routes.py:137-181` (`_provider_status_map`, `_auto_retest` type lookup)
 - Modify: `src/searchhub/api/admin/keys_routes.py:26-38`
+- Modify: `src/searchhub/config.py` (`key_prefix_for`, key CRUD)
+- Modify: `src/searchhub/providers/__init__.py` (reuse `key_prefix_for`)
 - Test: `tests/api/admin/test_config_routes.py`
 - Test: `tests/api/admin/test_keys_tokens.py`
+- Test: `tests/test_config.py`
 
 **Interfaces:**
 - Consumes: `ProviderConfig.type`, `validate_options` from Task 3.
 - Produces: `POST /api/admin/providers` accepts `type`; unknown type returns 400; duplicate `id` returns 409.
 - Produces: `PUT /api/admin/providers/{id}` rejects a `type` change.
+- Produces: `key_prefix_for(provider_id: str) -> str` in `config.py` (`exa-work` -> `EXA_WORK_KEY_`); `ConfigService.provider_keys` / `add_provider_key` / `remove_provider_key` use it.
 - Produces: `_validate_key_for_provider(provider_id, provider_type, key)`; prefix validation uses `provider_type`.
 - Produces: `_provider_status_map` and `_auto_retest` resolve the schema by `pc.type`, not `pc.id`.
 
@@ -546,6 +565,17 @@ def test_key_prefix_validation_uses_type_for_custom_id(admin_client):
     assert r.status_code == 400
 ```
 
+```python
+# tests/test_config.py
+def test_provider_keys_support_hyphenated_instance_id(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    cs.add_provider_key("exa-work", "k1")
+    assert cs.provider_keys("exa-work") == ["k1"]
+    cs.remove_provider_key("exa-work", 0)
+    assert cs.provider_keys("exa-work") == []
+```
+
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `pytest tests/api/admin/test_config_routes.py tests/api/admin/test_keys_tokens.py -v`
@@ -553,18 +583,19 @@ Expected: FAIL because create/update still look up by `id` and ignore `type`.
 
 - [ ] **Step 3: Implement the admin changes**
 
-Add a `_schema_for_type(type)` helper. In create: reject unknown type, validate capabilities/base_url, validate options, append. In update: if `type` was omitted from the request body, keep the existing type; reject an explicit type change; validate options; replace. In keys: resolve schema by `provider_type` and validate prefix. Update `_provider_status_map` and `_auto_retest` to use `pc.type` for schema lookup and `pc.id` for key/status identity. Keep old create bodies without `type` working for built-in IDs via the `type = id` default.
+Add a `_schema_for_type(type)` helper. In create: reject unknown type, validate capabilities/base_url, validate options, append. In update: if `type` was omitted from the request body, keep the existing type; reject an explicit type change; validate options; replace. In keys: resolve schema by `provider_type` and validate prefix. Update `_provider_status_map` and `_auto_retest` to use `pc.type` for schema lookup and `pc.id` for key/status identity. Move the instance-key sanitizer into `config.py` as `key_prefix_for`, use it from `ConfigService.provider_keys` / `add_provider_key` / `remove_provider_key`, and reuse it from `providers/__init__.py`. Keep old create bodies without `type` working for built-in IDs via the `type = id` default.
 
-- [ ] **Step 4: Run admin tests**
+- [ ] **Step 4: Run admin and config tests**
 
-Run: `pytest tests/api/admin/test_config_routes.py tests/api/admin/test_keys_tokens.py -v`
+Run: `pytest tests/api/admin/test_config_routes.py tests/api/admin/test_keys_tokens.py tests/test_config.py -v`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add src/searchhub/api/admin/config_routes.py src/searchhub/api/admin/keys_routes.py \
-  tests/api/admin/test_config_routes.py tests/api/admin/test_keys_tokens.py
+  src/searchhub/config.py src/searchhub/providers/__init__.py \
+  tests/api/admin/test_config_routes.py tests/api/admin/test_keys_tokens.py tests/test_config.py
 git commit -m "feat: validate provider type and options in admin API"
 ```
 
@@ -1124,6 +1155,74 @@ Expected: PASS.
 git add src/searchhub/engine/cache_keys.py src/searchhub/orchestrator.py \
   tests/storage/test_cache.py
 git commit -m "feat: include config version in cache keys"
+```
+
+---
+
+### Task 16a: RPS-only rate-limit visibility
+
+**Files:**
+- Modify: `frontend/src/views/ProviderDetailView.vue`
+- Modify: `frontend/src/utils/providerFields.ts`
+- Modify: `frontend/src/i18n/index.ts`
+- Test: `frontend/tests/provider-fields.test.ts`
+
+**Interfaces:**
+- Produces: `shouldShowKeyPool(entry: ProviderType | undefined): boolean` — true when auth is required/optional or `key_pool_params !== 'none'`.
+- Produces: `shouldShowKeyRows(entry: ProviderType | undefined): boolean` — true only when auth is required/optional.
+- `ProviderDetailView.vue` renders the rate-limit card for RPS-only providers (SearXNG, Trafilatura), but only renders key rows/add controls when auth is configured.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+// frontend/tests/provider-fields.test.ts
+import { shouldShowKeyPool, shouldShowKeyRows } from '@/utils/providerFields'
+
+const rpsOnly = {
+  type: 'searxng', name: 'SearXNG', capabilities: ['search'],
+  auth: { mode: 'none', header_name: null, query_param: null, required: false, optional: false, key_prefix: null, hint: '' },
+  endpoint: { default: null, overridable: true, required: true, label: 'Base URL', placeholder: '' },
+  fields: [], tests: [], key_pool_params: 'rps',
+} as const
+
+const keyed = {
+  ...rpsOnly,
+  type: 'exa', name: 'Exa',
+  auth: { ...rpsOnly.auth, mode: 'header', header_name: 'x-api-key', required: true },
+  key_pool_params: 'full',
+} as const
+
+describe('key pool visibility', () => {
+  it('shows rate limits for RPS-only providers without key rows', () => {
+    expect(shouldShowKeyPool(rpsOnly)).toBe(true)
+    expect(shouldShowKeyRows(rpsOnly)).toBe(false)
+  })
+  it('shows key rows for keyed providers', () => {
+    expect(shouldShowKeyPool(keyed)).toBe(true)
+    expect(shouldShowKeyRows(keyed)).toBe(true)
+  })
+})
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd frontend && npm test -- provider-fields`
+Expected: FAIL because the helpers do not exist.
+
+- [ ] **Step 3: Implement the helpers and view changes**
+
+Add the two pure helpers to `providerFields.ts`. In `ProviderDetailView.vue`, use `shouldShowKeyPool(entry)` for the rate-limit card visibility and `shouldShowKeyRows(entry)` for the key list/add controls. Use a new `providers.rateLimit` i18n title when the card has no key rows; keep `providers.keyPool` for keyed providers. Add zh/en entries.
+
+- [ ] **Step 4: Run frontend tests, typecheck, and build**
+
+Run: `cd frontend && npm test -- provider-fields && npm run typecheck && npm run build`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add frontend/src/views/ProviderDetailView.vue frontend/src/utils/providerFields.ts   frontend/src/i18n/index.ts frontend/tests/provider-fields.test.ts
+git commit -m "fix: show rate limits for RPS-only providers"
 ```
 
 ---
