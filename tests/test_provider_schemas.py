@@ -1,5 +1,14 @@
+from dataclasses import asdict
+
 from searchhub.providers import PROVIDER_CLASSES
-from searchhub.providers.schema import ProviderSchema, validate_provider_config
+from searchhub.providers.schema import (
+    AuthSpec,
+    EndpointSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+    validate_provider_config,
+)
 
 
 def test_all_six_providers_declare_schema():
@@ -44,3 +53,21 @@ def test_validate_capability_bounds():
 
 def test_validate_unknown_type_is_lenient():
     assert validate_provider_config("custom-thing", ["search"], "", None) == []
+
+
+def test_schema_derived_flags_and_asdict():
+    s = ProviderSchema(
+        type="demo",
+        name="Demo",
+        capabilities=("search",),
+        auth=AuthSpec(mode="header", header_name="x-api-key", required=True, key_prefix="demo_"),
+        endpoint=EndpointSpec(default="https://api.demo", overridable=True, required=True),
+        fields=(FieldSpec(key="mode", label="providers.fields.demo.mode",
+                          type="enum", choices=("a", "b"), default="a"),),
+        tests=(TestSpec(capability="search", query="q"),),
+    )
+    assert s.requires_key is True
+    assert s.requires_base_url is True
+    assert s.key_prefix == "demo_"
+    assert s.show_max_results is True
+    assert asdict(s)["fields"][0]["key"] == "mode"
