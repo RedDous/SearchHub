@@ -21,16 +21,27 @@
           <n-grid-item v-for="row in rows" :key="row.id">
             <n-card size="small" class="provider-card">
               <div class="card-top">
-                <div class="card-name">{{ row.name }}</div>
-                <StatusTag :id="row.id" :configured="row.configured" />
+                <div class="card-heading">
+                  <div class="card-name">{{ row.name }}</div>
+                  <div class="card-instance">
+                    <template v-if="row.configured">
+                      {{ t('providers.id') }}: {{ row.id }} · {{ t('providers.type') }}: {{ row.type }}
+                    </template>
+                    <template v-else>
+                      {{ t('providers.type') }}: {{ row.type }}
+                    </template>
+                  </div>
+                </div>
+                <StatusTag :status="row.status" :configured="row.configured" />
               </div>
+              <div v-if="row.descriptionKey" class="card-desc">{{ t(row.descriptionKey) }}</div>
               <n-space :size="6" class="card-caps">
                 <n-tag v-for="c in row.capabilities" :key="c" size="small" :bordered="false">
                   {{ c }}
                 </n-tag>
               </n-space>
               <div v-if="row.configured" class="card-meta">
-                {{ t('providers.keys') }} ×{{ keyCounts[row.id] ?? 0 }} ·
+                {{ t('providers.keys') }} ×{{ row.keyCount }} ·
                 {{ t('providers.weight') }} {{ row.weight }} ·
                 {{ t('providers.priority') }} {{ row.priority }}
               </div>
@@ -44,7 +55,7 @@
                   </n-button>
                 </template>
                 <template v-else>
-                  <n-button size="small" type="primary" @click="router.push({ name: 'provider-new', params: { type: row.id } })">
+                  <n-button size="small" type="primary" @click="router.push({ name: 'provider-new', params: { type: row.type } })">
                     {{ t('providers.add') }}
                   </n-button>
                 </template>
@@ -53,23 +64,21 @@
           </n-grid-item>
         </n-grid>
       </template>
-      <n-data-table v-else :columns="columns" :data="rows" size="small" />
+      <n-data-table v-else :columns="columns" :data="rows" :row-key="rowKey" size="small" />
     </n-spin>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, defineComponent, h, onMounted, ref, watch } from 'vue'
+import type { PropType } from 'vue'
 import { useDialog, useMessage, NButton, NSpace, NTag } from 'naive-ui'
 import type { DataTableColumns } from 'naive-ui'
 import { useRouter } from 'vue-router'
 import { adminApi, type ProviderCfg, type ProviderStatus } from '@/api/admin'
 import { useProviderTypesStore } from '@/stores/providerTypes'
+import { buildProviderRows, type ProviderRow } from '@/utils/providerRows'
 import { t } from '@/i18n'
-
-type Row =
-  | (ProviderCfg & { configured: true; name: string })
-  | { id: string; name: string; capabilities: string[]; configured: false }
 
 const router = useRouter()
 const dialog = useDialog()
@@ -82,61 +91,67 @@ const configStatus = ref<Record<string, ProviderStatus>>({})
 const viewMode = ref<'card' | 'table'>(localStorage.getItem('providers.viewMode') === 'table' ? 'table' : 'card')
 watch(viewMode, (v) => localStorage.setItem('providers.viewMode', v))
 
-const rows = computed<Row[]>(() => {
-  const cfg = new Map(providers.value.map((p) => [p.id, p]))
-  const list = typesStore.types.map((entry) => {
-    const p = cfg.get(entry.type)
-    return p
-      ? { ...p, configured: true as const, name: entry.name }
-      : { id: entry.type, name: entry.name, capabilities: entry.capabilities, configured: false as const }
-  })
-  const catalogIds = new Set(typesStore.types.map((e) => e.type))
-  for (const p of providers.value) {
-    if (!catalogIds.has(p.id)) {
-      list.push({ ...p, configured: true as const, name: p.id })
-    }
-  }
-  return list
-})
+const rows = computed<ProviderRow[]>(() =>
+  buildProviderRows(typesStore.types, providers.value, keyCounts.value, configStatus.value),
+)
 
-function statusInfo(id: string, configured: boolean): { type: 'success' | 'error' | 'default'; text: string } {
+const rowKey = (row: ProviderRow) => row.id
+
+type StatusTagType = 'success' | 'error' | 'default'
+
+function statusInfo(status: ProviderStatus | undefined, configured: boolean): { type: StatusTagType; text: string } {
   if (!configured) return { type: 'default', text: t('providers.unconfigured') }
-  const st = configStatus.value[id]
-  if (!st) return { type: 'default', text: t('providers.testNever') }
-  const map: Record<string, ['success' | 'error' | 'default', string]> = {
+  if (!status) return { type: 'default', text: t('providers.testNever') }
+  const map: Record<string, [StatusTagType, string]> = {
     ok: ['success', t('providers.testOkShort')],
     failed: ['error', t('providers.testFailShort')],
     untested: ['default', t('providers.testNever')],
     missing_key: ['error', t('providers.missingKey')],
     missing_base_url: ['error', t('providers.missingBaseUrl')],
   }
-  const [type, text] = map[st.status] ?? ['default', st.status]
+  const [type, text] = map[status.status] ?? ['default', status.status]
   return { type, text }
 }
 
 const StatusTag = defineComponent({
-  props: { id: { type: String, required: true }, configured: { type: Boolean, required: true } },
+  props: {
+    status: { type: Object as PropType<ProviderStatus | undefined>, default: undefined },
+    configured: { type: Boolean, required: true },
+  },
   setup(props) {
     return () => {
-      const { type, text } = statusInfo(props.id, props.configured)
+      const { type, text } = statusInfo(props.status, props.configured)
       return h(NTag, { size: 'small', type }, { default: () => text })
     }
   },
 })
 
-const columns = computed<DataTableColumns<Row>>(() => [
+const columns = computed<DataTableColumns<ProviderRow>>(() => [
+  {
+    title: t('providers.name'),
+    key: 'name',
+    render: (row) => h('span', { class: 'provider-name' }, row.name),
+  },
   {
     title: t('providers.id'),
     key: 'id',
-    render: (row) => h('span', { class: 'provider-cell' }, [
-      h('span', { class: 'provider-name' }, row.name),
-    ]),
+    render: (row) => (row.configured ? row.id : '—'),
+  },
+  {
+    title: t('providers.type'),
+    key: 'type',
+    render: (row) => row.type,
+  },
+  {
+    title: t('providers.description'),
+    key: 'description',
+    render: (row) => (row.descriptionKey ? t(row.descriptionKey) : '—'),
   },
   {
     title: t('providers.availability'),
     key: 'availability',
     render: (row) => {
-      const { type, text } = statusInfo(row.id, row.configured)
+      const { type, text } = statusInfo(row.status, row.configured)
       return h(NTag, { size: 'small', type }, { default: () => text })
     },
   },
@@ -149,7 +164,7 @@ const columns = computed<DataTableColumns<Row>>(() => [
         row.capabilities.map((c) => h(NTag, { size: 'small', style: 'margin-right: 6px' }, { default: () => c })),
       ),
   },
-  { title: t('providers.keys'), key: 'keys', render: (row) => (row.configured ? String(keyCounts.value[row.id] ?? 0) : '—') },
+  { title: t('providers.keys'), key: 'keys', render: (row) => (row.configured ? String(row.keyCount) : '—') },
   { title: t('providers.weight'), key: 'weight', render: (row) => (row.configured ? String(row.weight) : '—') },
   { title: t('providers.priority'), key: 'priority', render: (row) => (row.configured ? String(row.priority) : '—') },
   {
@@ -174,7 +189,7 @@ const columns = computed<DataTableColumns<Row>>(() => [
             : [
                 h(
                   NButton,
-                  { size: 'small', type: 'primary', onClick: () => router.push({ name: 'provider-new', params: { type: row.id } }) },
+                  { size: 'small', type: 'primary', onClick: () => router.push({ name: 'provider-new', params: { type: row.type } }) },
                   { default: () => t('providers.add') },
                 ),
               ],
@@ -207,7 +222,7 @@ async function load() {
   }
 }
 
-function onDelete(row: Row) {
+function onDelete(row: ProviderRow) {
   dialog.warning({
     title: t('providers.delete'),
     content: t('providers.deleteProviderConfirm').replace('{id}', row.id),
@@ -251,13 +266,27 @@ onMounted(() => {
 }
 .card-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 8px;
+}
+.card-heading {
+  min-width: 0;
 }
 .card-name {
   font-size: 15px;
   font-weight: 600;
+}
+.card-instance {
+  font-size: 12px;
+  color: #888;
+  line-height: 1.4;
+}
+.card-desc {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 10px;
 }
 .card-caps {
   margin-bottom: 10px;
@@ -270,16 +299,7 @@ onMounted(() => {
 .card-actions {
   justify-content: flex-end;
 }
-.provider-cell {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
 .provider-name {
   font-weight: 600;
-}
-.provider-sub {
-  font-size: 12px;
-  color: #888;
 }
 </style>
