@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from searchhub.engine.rate_limit import TokenBucket
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
@@ -94,8 +96,21 @@ class SearxngProvider(Provider):
             raise ProviderError(self.id, "searxng base_url not configured")
         await self._bucket.acquire()
         url = self.cfg.base_url.rstrip("/") + "/search"
+        opts = self.options
+        params: dict[str, Any] = {
+            "q": query,
+            "format": "json",
+            "safesearch": opts.safesearch,
+            "language": opts.language,
+        }
+        if opts.categories:
+            params["categories"] = ",".join(opts.categories)
+        if opts.time_range:
+            params["time_range"] = opts.time_range
+        if opts.engines:
+            params["engines"] = ",".join(opts.engines)
         try:
-            resp = await self.http.get(url, params={"q": query, "format": "json", "safesearch": 1})
+            resp = await self.http.get(url, params=params)
         except Exception as e:
             raise ProviderError(self.id, f"http error: {e.__class__.__name__}")
         if not 200 <= resp.status_code < 300:

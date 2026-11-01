@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
@@ -95,4 +96,15 @@ class DdgProvider(Provider):
     def _search_sync(self, query: str, limit: int) -> list[dict]:
         from ddgs import DDGS
 
-        return DDGS().text(query, max_results=limit)
+        opts = self.options
+        kwargs: dict[str, Any] = {
+            "max_results": limit,
+            "safesearch": opts.safesearch,
+        }
+        if opts.region:
+            kwargs["region"] = opts.region
+        if opts.timelimit:
+            kwargs["timelimit"] = opts.timelimit
+        if opts.backend:
+            kwargs["backend"] = opts.backend
+        return DDGS().text(query, **kwargs)
