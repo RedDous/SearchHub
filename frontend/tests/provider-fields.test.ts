@@ -4,6 +4,8 @@ import {
   defaultOptions,
   groupFields,
   isFieldVisible,
+  shouldShowKeyPool,
+  shouldShowKeyRows,
 } from '@/utils/providerFields'
 
 const fields = [
@@ -44,5 +46,30 @@ describe('provider fields', () => {
 
   it('builds default options from every field', () => {
     expect(defaultOptions(fields)).toEqual({ search_type: 'auto', timeout_s: null })
+  })
+})
+
+const rpsOnly = {
+  type: 'searxng', name: 'SearXNG', capabilities: ['search'],
+  auth: { mode: 'none', header_name: null, query_param: null, required: false, optional: false, key_prefix: null, hint: '' },
+  endpoint: { default: null, overridable: true, required: true, label: 'Base URL', placeholder: '' },
+  fields: [], tests: [], key_pool_params: 'rps',
+} as const
+
+const keyed = {
+  ...rpsOnly,
+  type: 'exa', name: 'Exa',
+  auth: { ...rpsOnly.auth, mode: 'header', header_name: 'x-api-key', required: true },
+  key_pool_params: 'full',
+} as const
+
+describe('key pool visibility', () => {
+  it('shows rate limits for RPS-only providers without key rows', () => {
+    expect(shouldShowKeyPool(rpsOnly)).toBe(true)
+    expect(shouldShowKeyRows(rpsOnly)).toBe(false)
+  })
+  it('shows key rows for keyed providers', () => {
+    expect(shouldShowKeyPool(keyed)).toBe(true)
+    expect(shouldShowKeyRows(keyed)).toBe(true)
   })
 })

@@ -103,7 +103,7 @@
         </n-form>
       </n-card>
 
-      <n-card v-if="showKeyPool" :title="t('providers.keyPool')" size="small" class="keys-card">
+      <n-card v-if="showKeyPool" :title="keysCardTitle" size="small" class="keys-card">
         <div v-if="entry?.auth.optional" class="key-hint-text">{{ t('providers.keyOptionalHint') }}</div>
         <n-form label-placement="left" label-width="150">
           <n-form-item v-if="showFullKeyPool" :label="t('providers.maxConcurrency')">
@@ -116,21 +116,23 @@
             <n-input-number v-model:value="form.key_pool.cooldown_s" :min="0" style="width: 160px" />
           </n-form-item>
         </n-form>
-        <div v-for="k in keys" :key="k.index" class="key-row">
-          <n-tag size="small" :bordered="false">{{ k.masked }}</n-tag>
-          <n-tag v-if="k.status" size="small" :bordered="false" :type="keyStatus(k).type">
-            {{ keyStatus(k).text }}
-          </n-tag>
-          <n-button size="tiny" type="error" quaternary @click="onDeleteKey(k.index)">
-            {{ t('providers.delete') }}
-          </n-button>
-        </div>
-        <div class="key-add">
-          <n-input v-model:value="newKey" :placeholder="t('providers.addKey')" @keydown.enter="onAddKey" />
-          <n-button type="primary" :loading="addingKey" @click="onAddKey">
-            {{ t('providers.addKey') }}
-          </n-button>
-        </div>
+        <template v-if="showKeyRows">
+          <div v-for="k in keys" :key="k.index" class="key-row">
+            <n-tag size="small" :bordered="false">{{ k.masked }}</n-tag>
+            <n-tag v-if="k.status" size="small" :bordered="false" :type="keyStatus(k).type">
+              {{ keyStatus(k).text }}
+            </n-tag>
+            <n-button size="tiny" type="error" quaternary @click="onDeleteKey(k.index)">
+              {{ t('providers.delete') }}
+            </n-button>
+          </div>
+          <div class="key-add">
+            <n-input v-model:value="newKey" :placeholder="t('providers.addKey')" @keydown.enter="onAddKey" />
+            <n-button type="primary" :loading="addingKey" @click="onAddKey">
+              {{ t('providers.addKey') }}
+            </n-button>
+          </div>
+        </template>
       </n-card>
     </n-spin>
   </div>
@@ -151,6 +153,7 @@ import {
 import { ApiError } from '@/api/client'
 import { useProviderTypesStore } from '@/stores/providerTypes'
 import { buildProviderPayload, defaultOptions } from '@/utils/providerPayload'
+import { shouldShowKeyPool, shouldShowKeyRows } from '@/utils/providerFields'
 import { t } from '@/i18n'
 import ProviderOptionsForm from '@/components/ProviderOptionsForm.vue'
 
@@ -173,7 +176,13 @@ const baseUrlPlaceholder = computed(
   () => entry.value?.endpoint.placeholder || entry.value?.endpoint.default || 'http://searxng:8080',
 )
 const showKeyPool = computed(() =>
-  entry.value ? entry.value.auth.required || entry.value.auth.optional : !isNew.value,
+  entry.value ? shouldShowKeyPool(entry.value) : !isNew.value,
+)
+const showKeyRows = computed(() =>
+  entry.value ? shouldShowKeyRows(entry.value) : !isNew.value,
+)
+const keysCardTitle = computed(() =>
+  showKeyRows.value ? t('providers.keyPool') : t('providers.rateLimit'),
 )
 const showFullKeyPool = computed(() => entry.value?.key_pool_params === 'full' || (!entry.value && !isNew.value))
 const showRpsOnly = computed(() => entry.value?.key_pool_params === 'rps')
