@@ -91,6 +91,13 @@ export interface TokenInfo {
   revoked: boolean
   hash_prefix: string
 }
+export interface ProviderTestResult {
+  capability: string
+  success: boolean
+  count: number
+  took_ms: number
+  error?: string
+}
 export interface ProviderTest {
   success: boolean
   capability?: string
@@ -156,9 +163,9 @@ export const adminApi = {
     request<null>(`/api/admin/providers/${id}`, { method: 'PUT', body: cfg }),
   deleteProvider: (id: string) => request<null>(`/api/admin/providers/${id}`, { method: 'DELETE' }),
   testProvider: (id: string) =>
-    request<{ capability: string; count: number; took_ms: number }>(`/api/admin/providers/${id}/test`, { method: 'POST' }),
+    request<{ results: ProviderTestResult[] }>(`/api/admin/providers/${id}/test`, { method: 'POST' }),
   testProviderConfig: (cfg: ProviderCfg) =>
-    request<{ capability: string; count: number; took_ms: number }>('/api/admin/providers/test', { method: 'POST', body: cfg }),
+    request<{ results: ProviderTestResult[] }>('/api/admin/providers/test', { method: 'POST', body: cfg }),
   listKeys: (id: string) => request<{ keys: KeyEntry[] }>(`/api/admin/providers/${id}/keys`),
   addKey: (id: string, key: string) => request<null>(`/api/admin/providers/${id}/keys`, { method: 'POST', body: { key } }),
   deleteKey: (id: string, index: number) => request<null>(`/api/admin/providers/${id}/keys/${index}`, { method: 'DELETE' }),
