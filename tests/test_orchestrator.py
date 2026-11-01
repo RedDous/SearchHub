@@ -127,6 +127,30 @@ async def test_extract_merges_and_caches(data_dir):
     assert r2.meta["cached"] is True
 
 
+def test_record_test_keeps_capabilities_separate(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    eng = SearchHubEngine(cs, None, httpx.AsyncClient())
+    eng.record_test("exa", "search", success=True, count=1, took_ms=10)
+    eng.record_test("exa", "extract", success=False, count=0, took_ms=20, error="boom")
+    assert eng.provider_tests["exa"]["search"]["success"] is True
+    assert eng.provider_tests["exa"]["extract"]["success"] is False
+
+
+def test_provider_status_reports_instance_capabilities_and_tests(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.providers = [ProviderConfig(id="ddg-work", type="ddg", capabilities=["search"])]
+    cs.save_config(cfg)
+    eng = SearchHubEngine(cs, None, httpx.AsyncClient())
+    eng.record_test("ddg-work", "search", success=True, count=1, took_ms=10)
+    entry = next(e for e in eng.provider_status() if e["id"] == "ddg-work")
+    assert entry["type"] == "ddg"
+    assert entry["capabilities"] == ["search"]
+    assert entry["tests"]["search"]["success"] is True
+
+
 @pytest.mark.asyncio
 async def test_extract_rotation_mode(data_dir):
     eng = make_engine(data_dir, [

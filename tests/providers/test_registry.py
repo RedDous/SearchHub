@@ -53,6 +53,15 @@ def test_build_registry_uses_type_not_id(cfg):
     assert registry["exa-work"].cfg.type == "exa"
 
 
+def test_provider_uses_instance_id(cfg):
+    cfg.providers = [
+        ProviderConfig(id="exa-work", type="exa", capabilities=["search"]),
+    ]
+    registry = build_registry(cfg, {"EXA_WORK_KEY_1": "k1"}, httpx.AsyncClient())
+    assert registry["exa-work"].id == "exa-work"
+    assert registry["exa-work"].cfg.type == "exa"
+
+
 def test_registry_for_capability_respects_instance_capabilities(cfg):
     cfg.providers = [
         ProviderConfig(id="exa", type="exa", capabilities=["search"]),

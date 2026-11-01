@@ -32,18 +32,19 @@ class SearchHubEngine:
         self._registry: dict[str, Provider] = {}
         self._version = -1
         self.stats: dict[str, dict[str, Any]] = {}
-        # 最近一次连接测试结果（内存态，重启后重置）：{provider_id: {success, capability, count, took_ms, error?, at}}
-        self.provider_tests: dict[str, dict[str, Any]] = {}
+        # 最近一次连接测试结果（内存态，重启后重置）：
+        # {provider_id: {capability: {success, capability, count, took_ms, error?, at}}}
+        self.provider_tests: dict[str, dict[str, dict[str, Any]]] = {}
 
-    def record_test(self, provider_id: str, *, success: bool, capability: str,
+    def record_test(self, provider_id: str, capability: str, *, success: bool,
                     count: int, took_ms: float, error: str | None = None) -> None:
-        """真实调用或连接测试后记录可用性快照。"""
+        """真实调用或连接测试后记录可用性快照（按 capability 分别记录）。"""
         entry: dict[str, Any] = {"success": bool(success), "at": time.time(),
                                  "capability": capability, "count": count,
                                  "took_ms": round(took_ms, 1)}
         if error:
             entry["error"] = error
-        self.provider_tests[provider_id] = entry
+        self.provider_tests.setdefault(provider_id, {})[capability] = entry
 
     def maybe_reload(self) -> bool:
         if self.config.maybe_reload() or self._version != self.config.config_version:
@@ -105,7 +106,7 @@ class SearchHubEngine:
                     outcomes = [await primary_fallback(providers_list, "search", t, call)]
             for o in outcomes:
                 self._record(o.provider_id, o.error is None, o.took_ms)
-                self.record_test(o.provider_id, success=o.error is None, capability="search",
+                self.record_test(o.provider_id, "search", success=o.error is None,
                                  count=len(o.items) if o.items else 0, took_ms=o.took_ms,
                                  error=o.error)
             if all(o.error for o in outcomes):
@@ -176,7 +177,7 @@ class SearchHubEngine:
                     outcomes = [await primary_fallback(providers_list, "extract", t, call)]
             for o in outcomes:
                 self._record(o.provider_id, o.error is None, o.took_ms)
-                self.record_test(o.provider_id, success=o.error is None, capability="extract",
+                self.record_test(o.provider_id, "extract", success=o.error is None,
                                  count=len(o.items) if o.items else 0, took_ms=o.took_ms,
                                  error=o.error)
             merged = merge_extract(outcomes, remaining, self._registry)
@@ -258,10 +259,12 @@ class SearchHubEngine:
         for pid, p in sorted(self._registry.items()):
             entry = {
                 "id": pid,
-                "capabilities": sorted(p.capabilities),
+                "type": p.cfg.type,
+                "capabilities": sorted(p.cfg.capabilities),
                 "weight": p.cfg.weight,
                 "priority": p.cfg.priority,
                 "keys": [],
+                "tests": self.provider_tests.get(pid, {}),
             }
             if p.key_pool is not None:
                 entry["keys"] = p.key_pool.status()

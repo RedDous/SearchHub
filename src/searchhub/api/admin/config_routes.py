@@ -159,8 +159,9 @@ def _provider_status_map(engine) -> dict:
             out[pc.id] = {"status": "missing_key", "test": None}
         elif schema and schema.requires_base_url and not pc.base_url:
             out[pc.id] = {"status": "missing_base_url", "test": None}
-        elif pc.id in engine.provider_tests:
-            test = engine.provider_tests[pc.id]
+        elif engine.provider_tests.get(pc.id):
+            # provider_tests 现按 capability 分槽；在 Task 9 改造前，仍以最近一次结果呈现。
+            test = max(engine.provider_tests[pc.id].values(), key=lambda t: t["at"])
             out[pc.id] = {"status": "ok" if test["success"] else "failed", "test": test}
         else:
             out[pc.id] = {"status": "untested", "test": None}

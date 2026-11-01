@@ -30,6 +30,8 @@ class Provider(ABC):
 
     def __init__(self, cfg: ProviderConfig, keys: list[str], http: httpx.AsyncClient):
         self.cfg = cfg
+        # 实例 ID（可与适配器类型不同）；类属性 id 仍表示适配器类型。
+        self.id = cfg.id
         self.keys = keys
         self.http = http
         self.options = (
