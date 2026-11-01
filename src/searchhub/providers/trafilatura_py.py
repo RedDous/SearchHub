@@ -125,5 +125,16 @@ class TrafilaturaProvider(Provider):
         from trafilatura import extract, fetch_url
 
         html = fetch_url(url)
-        text = extract(html, output_format="markdown" if fmt == "markdown" else "txt")
+        kwargs: dict = {"output_format": "markdown" if fmt == "markdown" else "txt"}
+        opts = self.options
+        if opts is not None:
+            kwargs.update(
+                favor_precision=opts.favor_precision,
+                favor_recall=opts.favor_recall,
+                include_comments=opts.include_comments,
+                include_tables=opts.include_tables,
+                deduplicate=opts.deduplicate,
+                target_language=opts.target_language,
+            )
+        text = extract(html, **kwargs)
         return html, text

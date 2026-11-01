@@ -57,3 +57,34 @@ async def test_extract_failure_is_per_url():
     items = await make_provider().extract(["https://bad.com"])
     assert items[0].error is not None
     assert items[0].url == "https://bad.com"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_extract_uses_custom_base_url_and_headers():
+    route = respx.get("http://reader.local/https://a.com").mock(
+        return_value=httpx.Response(200, text="# A\nbody")
+    )
+    cfg = ProviderConfig(id="jina", type="jina", capabilities=["extract"],
+                         base_url="http://reader.local/",
+                         options={"target_selector": "main",
+                                  "timeout_s": 30, "no_cache": True})
+    await JinaProvider(cfg, [], httpx.AsyncClient()).extract(["https://a.com"])
+    req = route.calls[0].request
+    assert req.headers["X-Return-Format"] == "markdown"  # request fmt default wins
+    assert req.headers["X-Target-Selector"] == "main"
+    assert req.headers["X-Timeout"] == "30"
+    assert req.headers["X-No-Cache"] == "true"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_extract_omits_unset_option_headers():
+    route = respx.get("https://r.jina.ai/https://a.com").mock(
+        return_value=httpx.Response(200, text="x")
+    )
+    await make_provider().extract(["https://a.com"])
+    req = route.calls[0].request
+    assert req.headers["X-Return-Format"] == "markdown"
+    for name in ("X-Target-Selector", "X-Wait-For-Selector", "X-Timeout", "X-No-Cache"):
+        assert name not in req.headers

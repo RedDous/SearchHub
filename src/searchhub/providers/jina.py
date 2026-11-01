@@ -81,6 +81,14 @@ class JinaProvider(Provider):
         docs_url="https://jina.ai/reader/",
     )
 
+    def _base_url(self) -> str:
+        return self.cfg.base_url or self.BASE
+
+    def _build_url(self, url: str) -> str:
+        # The target URL is absolute, so urljoin would discard the base; the
+        # Reader API expects it appended verbatim.
+        return self._base_url().rstrip("/") + "/" + url.lstrip("/")
+
     async def search(self, query: str, limit: int) -> list[SearchItem]:
         raise NotImplementedError
 
@@ -93,11 +101,21 @@ class JinaProvider(Provider):
 
     async def _extract_one(self, url: str, fmt: str, max_chars: int) -> ExtractItem:
         headers = {"X-Return-Format": fmt}
+        opts = self.options
+        if opts is not None:
+            if opts.target_selector:
+                headers["X-Target-Selector"] = opts.target_selector
+            if opts.wait_for_selector:
+                headers["X-Wait-For-Selector"] = opts.wait_for_selector
+            if opts.timeout_s is not None:
+                headers["X-Timeout"] = str(opts.timeout_s)
+            if opts.no_cache:
+                headers["X-No-Cache"] = "true"
         try:
             async with self._use_key() as k:
                 if k is not None:
                     headers["Authorization"] = f"Bearer {k}"
-                resp = await self.http.get(self.BASE + url, headers=headers)
+                resp = await self.http.get(self._build_url(url), headers=headers)
             if not 200 <= resp.status_code < 300:
                 if k is not None:
                     self._report(k, resp.status_code)
