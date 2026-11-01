@@ -93,18 +93,22 @@ git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up 
 
 ## 供应商配置
 
-在管理后台「供应商」页按目录点选类型，即可进入该供应商的专属配置表单：
+在管理后台「供应商」页按目录点选类型，即可进入该供应商的专属配置表单。表单由后端类型 schema 驱动（字段、默认值、枚举、帮助文本与校验均来自同一份定义），保存后可在页面执行「连接测试」验证；所有 Key 以掩码显示、绝不回显。
 
-| 供应商 | 能力 | 配置要点 |
-|---|---|---|
-| exa | search + extract | 云端 API，需 API Key（可配置多个自动轮换） |
-| tavily | search + extract | 云端 API，需 API Key |
-| ddg（DuckDuckGo） | search | 免 Key，启用即可 |
-| searxng | search | 自建实例，需填写 base_url |
-| jina | extract | 免 Key（可选 Key 提升免费配额） |
-| trafilatura | extract | 免 Key，内置本地提取 |
+| 供应商 | 能力 | 鉴权 / 端点 | v1 可配置字段 |
+|---|---|---|---|
+| exa | search + extract | 请求头 `x-api-key`，Key 必填；端点固定 `https://api.exa.ai` | `search_type`、`category`、`include_domains`、`exclude_domains`、`start_published_date`（高级）、`end_published_date`（高级）、`include_text`、`include_highlights`、`include_summary` |
+| tavily | search + extract | Bearer，Key 必填（前缀 `tvly-`）；端点固定 `https://api.tavily.com` | `search_depth`、`topic`、`include_domains`、`exclude_domains`、`include_answer`、`include_raw_content`、`days`（高级）、`extract_depth`、`include_images` |
+| ddg（DuckDuckGo） | search | 免 Key | `region`、`safesearch`、`timelimit`、`backend`（高级） |
+| searxng | search | 免 Key；`base_url` 必填（自建实例地址） | `categories`、`language`、`safesearch`、`time_range`、`engines`（高级） |
+| jina | extract | 可选 Bearer（前缀 `jina_`）；默认端点 `https://r.jina.ai/`，可覆盖 | `target_selector`、`wait_for_selector`、`timeout_s`（1–120 秒，高级）、`no_cache`（高级） |
+| trafilatura | extract | 免 Key，内置本地提取 | `favor_precision`、`favor_recall`、`include_comments`、`include_tables`、`deduplicate`（高级）、`target_language`（高级） |
 
-各供应商的配置表单由类型 schema 驱动（字段按需显示），保存后可在页面执行「连接测试」验证；所有 Key 以掩码显示、绝不回显。
+> v1 UI 默认每种类型一个实例；后端模型支持多实例，UI 入口后续开放。
+
+**Jina 自建 Reader**：把该实例的 Base URL 指向自建服务（例如 `http://192.168.1.10:3000/`）即可，留空则使用云端 `https://r.jina.ai/`。请求地址按 `<base_url>/<目标 URL>` 拼接，因此 Base URL 只需写到服务根路径。
+
+**配置迁移（`type` 字段）**：新模型把实例 ID（`id`）与适配器类型（`type`）分离。旧版 `config.yaml` 中的供应商没有 `type`，加载时会自动补为 `type = id`（例如 `id: exa` → `type: exa`），无需手工修改即可继续运行。`id` 与 `type` 创建后均不可变；如需更换类型，请删除后重建实例。
 
 ## 功能接入
 
