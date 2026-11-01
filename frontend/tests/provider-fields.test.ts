@@ -1,0 +1,48 @@
+import { describe, expect, it } from 'vitest'
+import {
+  defaultFieldValue,
+  defaultOptions,
+  groupFields,
+  isFieldVisible,
+} from '@/utils/providerFields'
+
+const fields = [
+  { key: 'search_type', label: 'x', type: 'enum' as const, choices: ['auto', 'deep'], default: 'auto', capability: 'search' as const, group: 'search' },
+  { key: 'timeout_s', label: 'y', type: 'int' as const, default: null, capability: 'extract' as const, group: 'advanced' },
+]
+
+describe('provider fields', () => {
+  it('groups by group and capability', () => {
+    expect(groupFields(fields, 'search')).toEqual({ search: [fields[0]] })
+  })
+
+  it('groups all fields when no capability is given', () => {
+    expect(groupFields(fields)).toEqual({
+      search: [fields[0]],
+      advanced: [fields[1]],
+    })
+  })
+
+  it('honors visible_when', () => {
+    expect(isFieldVisible({ ...fields[0], visible_when: { search_type: 'deep' } }, { search_type: 'auto' })).toBe(false)
+  })
+
+  it('shows fields whose conditions all match', () => {
+    const field = { ...fields[0], visible_when: { search_type: 'deep', mode: 'x' } }
+    expect(isFieldVisible(field, { search_type: 'deep', mode: 'x' })).toBe(true)
+    expect(isFieldVisible(field, { search_type: 'deep' })).toBe(false)
+  })
+
+  it('shows fields without visible_when', () => {
+    expect(isFieldVisible(fields[0], {})).toBe(true)
+  })
+
+  it('returns defaults', () => {
+    expect(defaultFieldValue(fields[0])).toBe('auto')
+    expect(defaultFieldValue(fields[1])).toBeNull()
+  })
+
+  it('builds default options from every field', () => {
+    expect(defaultOptions(fields)).toEqual({ search_type: 'auto', timeout_s: null })
+  })
+})

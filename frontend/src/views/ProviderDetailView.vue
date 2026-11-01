@@ -114,6 +114,7 @@ const newKey = ref('')
 
 interface FormModel {
   id: string
+  type: string
   capabilities: string[]
   enabled: boolean
   weight: number
@@ -128,6 +129,7 @@ function emptyForm(): FormModel {
   const catalogType = isNew.value ? typesStore.byType(props.type ?? '') : undefined
   return {
     id: catalogType ? catalogType.type : '',
+    type: catalogType ? catalogType.type : (props.type ?? ''),
     capabilities: catalogType ? [...catalogType.capabilities] : ['search', 'extract'],
     enabled: true,
     weight: 10,
@@ -151,6 +153,7 @@ async function load() {
       return
     }
     form.id = p.id
+    form.type = p.type
     form.capabilities = [...p.capabilities]
     form.enabled = p.enabled
     form.weight = p.weight
@@ -189,6 +192,7 @@ async function loadKeys() {
 function buildPayload(options: Record<string, unknown> = parseOptions(form.options)): ProviderCfg {
   return {
     id: form.id.trim(),
+    type: form.type,
     capabilities: [...form.capabilities],
     enabled: form.enabled,
     weight: form.weight,
@@ -272,11 +276,12 @@ async function onTest() {
     const r = isNew.value
       ? await adminApi.testProviderConfig(buildPayload())
       : await adminApi.testProvider(props.id)
-    lastStatus.value = { status: 'ok', test: { ...r, success: true, at: Date.now() / 1000 } }
+    const test = { ...r, success: true, at: Date.now() / 1000 }
+    lastStatus.value = { status: 'ok', test, tests: { [r.capability]: test } }
     message.success(t('providers.testOk') + `: ${r.capability} × ${r.count} (${r.took_ms}ms)`)
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e)
-    lastStatus.value = { status: 'failed', test: { success: false, error: detail, at: Date.now() / 1000 } }
+    lastStatus.value = { status: 'failed', test: { success: false, error: detail, at: Date.now() / 1000 }, tests: {} }
     message.error(t('providers.testFail') + ': ' + detail + (isNew.value ? t('providers.testDraftHint') : ''))
   } finally {
     testing.value = false
