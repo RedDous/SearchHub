@@ -14,12 +14,40 @@ function isCapability(v: unknown): boolean {
   return typeof v === 'string' && CAPABILITIES.includes(v)
 }
 
+function isBoolean(v: unknown): boolean {
+  return typeof v === 'boolean'
+}
+
+function isStringOrNull(v: unknown): boolean {
+  return v === null || typeof v === 'string'
+}
+
+function isNumberOrNull(v: unknown): boolean {
+  return v === null || (typeof v === 'number' && Number.isFinite(v))
+}
+
+function isStringArray(v: unknown): boolean {
+  return Array.isArray(v) && v.every((x) => typeof x === 'string')
+}
+
 function isAuthSpec(v: unknown): boolean {
-  return isRecord(v) && typeof v.mode === 'string' && AUTH_MODES.includes(v.mode)
+  if (!isRecord(v)) return false
+  return typeof v.mode === 'string' && AUTH_MODES.includes(v.mode) &&
+    isStringOrNull(v.header_name) &&
+    isStringOrNull(v.query_param) &&
+    isBoolean(v.required) &&
+    isBoolean(v.optional) &&
+    isStringOrNull(v.key_prefix) &&
+    typeof v.hint === 'string'
 }
 
 function isEndpointSpec(v: unknown): boolean {
-  return isRecord(v)
+  if (!isRecord(v)) return false
+  return isStringOrNull(v.default) &&
+    isBoolean(v.overridable) &&
+    isBoolean(v.required) &&
+    typeof v.label === 'string' &&
+    typeof v.placeholder === 'string'
 }
 
 function isFieldSpec(v: unknown): boolean {
@@ -27,11 +55,27 @@ function isFieldSpec(v: unknown): boolean {
   return typeof v.key === 'string' && v.key.length > 0 &&
     typeof v.label === 'string' &&
     typeof v.type === 'string' && FIELD_TYPES.includes(v.type) &&
-    (v.capability === null || v.capability === undefined || isCapability(v.capability))
+    (v.choices === undefined || isStringArray(v.choices)) &&
+    (v.required === undefined || isBoolean(v.required)) &&
+    (v.capability === null || v.capability === undefined || isCapability(v.capability)) &&
+    (v.group === undefined || typeof v.group === 'string') &&
+    (v.help === undefined || typeof v.help === 'string') &&
+    (v.placeholder === undefined || typeof v.placeholder === 'string') &&
+    (v.min === undefined || isNumberOrNull(v.min)) &&
+    (v.max === undefined || isNumberOrNull(v.max)) &&
+    (v.step === undefined || isNumberOrNull(v.step)) &&
+    (v.advanced === undefined || isBoolean(v.advanced)) &&
+    (v.visible_when === undefined || v.visible_when === null || isRecord(v.visible_when))
 }
 
 function isTestSpec(v: unknown): boolean {
-  return isRecord(v) && isCapability(v.capability)
+  if (!isRecord(v)) return false
+  return isCapability(v.capability) &&
+    isStringOrNull(v.query) &&
+    isStringArray(v.urls) &&
+    typeof v.max_chars === 'number' && Number.isFinite(v.max_chars) &&
+    typeof v.min_results === 'number' && Number.isFinite(v.min_results) &&
+    isBoolean(v.expect_content)
 }
 
 export function normalizeProviderTypes(raw: unknown): ProviderType[] {

@@ -57,6 +57,31 @@ describe('normalizeProviderTypes', () => {
     ]
     expect(normalizeProviderTypes(raw)).toHaveLength(0)
   })
+
+  it('rejects incomplete nested specs', () => {
+    const raw = [
+      // plausible-looking but missing required AuthSpec properties
+      typeEntry({ auth: { mode: 'none' } }),
+      // plausible-looking but missing every EndpointSpec property
+      typeEntry({ endpoint: {} }),
+      // plausible-looking but missing required TestSpec properties
+      typeEntry({ tests: [{ capability: 'search' }] }),
+      // wrong value types in otherwise complete objects
+      typeEntry({ auth: { ...auth, required: 'yes' } }),
+      typeEntry({ auth: { ...auth, header_name: 1 } }),
+      typeEntry({ endpoint: { ...endpoint, label: 1 } }),
+      typeEntry({ endpoint: { ...endpoint, overridable: 'no' } }),
+      typeEntry({ tests: [{ ...test, urls: 'x' }] }),
+      typeEntry({ tests: [{ ...test, max_chars: '200' }] }),
+      typeEntry({ tests: [{ ...test, expect_content: 1 }] }),
+      // malformed optional FieldSpec properties
+      typeEntry({ fields: [{ ...field, choices: 'auto' }] }),
+      typeEntry({ fields: [{ ...field, advanced: 'no' }] }),
+      typeEntry({ fields: [{ ...field, min: '1' }] }),
+      typeEntry({ fields: [{ ...field, visible_when: 'x' }] }),
+    ]
+    expect(normalizeProviderTypes(raw)).toHaveLength(0)
+  })
 })
 
 describe('provider types store', () => {
