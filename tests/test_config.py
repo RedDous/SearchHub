@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
 from searchhub.config import AppConfig, ConfigService, ProviderConfig, StrategyConfig
 
@@ -102,3 +103,31 @@ def test_save_failure_leaves_disk_and_memory_unchanged(data_dir: Path, monkeypat
     )
     assert on_disk.strategy.default_mode == "primary_fallback"
     assert not list(data_dir.glob("config.yaml.tmp"))
+
+
+def test_provider_config_defaults_type_to_id():
+    p = ProviderConfig(id="exa", capabilities=["search"])
+    assert p.type == "exa"
+
+
+def test_provider_config_allows_type_different_from_id():
+    p = ProviderConfig(id="exa-work", type="exa", capabilities=["search"])
+    assert p.type == "exa"
+
+
+def test_legacy_config_without_type_loads(data_dir):
+    data_dir.mkdir(parents=True, exist_ok=True)
+    (data_dir / "config.yaml").write_text(
+        "providers:\n- id: ddg\n  capabilities: [search]\n"
+    )
+    cs = ConfigService(data_dir)
+    cs.load()
+    assert cs.get().providers[0].type == "ddg"
+
+
+def test_duplicate_provider_ids_rejected():
+    with pytest.raises(ValidationError):
+        AppConfig(providers=[
+            ProviderConfig(id="exa", type="exa", capabilities=["search"]),
+            ProviderConfig(id="exa", type="exa", capabilities=["extract"]),
+        ])

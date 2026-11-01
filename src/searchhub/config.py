@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 CAPABILITIES = ("search", "extract")
 _KEY_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
@@ -43,6 +43,7 @@ class KeyPoolConfig(BaseModel):
 
 class ProviderConfig(BaseModel):
     id: str
+    type: str = ""
     capabilities: list[str]
     enabled: bool = True
     weight: int = Field(default=10, ge=1, le=100)
@@ -51,6 +52,21 @@ class ProviderConfig(BaseModel):
     base_url: str | None = None
     key_pool: KeyPoolConfig = KeyPoolConfig()
     options: dict[str, Any] = {}
+
+    @model_validator(mode="after")
+    def _default_type(self) -> "ProviderConfig":
+        if not self.type:
+            self.type = self.id
+        return self
+
+
+def _duplicate_provider_id(providers: list[ProviderConfig]) -> str | None:
+    seen: set[str] = set()
+    for p in providers:
+        if p.id in seen:
+            return p.id
+        seen.add(p.id)
+    return None
 
 
 class StrategyConfig(BaseModel):
@@ -94,6 +110,13 @@ class AppConfig(BaseModel):
     admin: AdminConfig = AdminConfig()
     history: HistoryConfig = HistoryConfig()
     providers: list[ProviderConfig] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _unique_provider_ids(self) -> "AppConfig":
+        duplicate = _duplicate_provider_id(self.providers)
+        if duplicate is not None:
+            raise ValueError(f"duplicate provider id: {duplicate!r}")
+        return self
 
     def provider(self, provider_id: str) -> ProviderConfig | None:
         return next((p for p in self.providers if p.id == provider_id), None)
@@ -207,6 +230,9 @@ class ConfigService:
             for c in p.capabilities:
                 if c not in CAPABILITIES:
                     raise ValueError(f"invalid capability: {c!r}")
+        duplicate = _duplicate_provider_id(cfg.providers)
+        if duplicate is not None:
+            raise ValueError(f"duplicate provider id: {duplicate!r}")
         self._write_yaml(cfg)
         self._cfg = cfg
 
