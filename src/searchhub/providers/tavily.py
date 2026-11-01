@@ -2,16 +2,126 @@ from __future__ import annotations
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import TavilyOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    EndpointSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 
 class TavilyProvider(Provider):
     id = "tavily"
     capabilities = frozenset({"search", "extract"})
     REQUIRES_KEY = True
-    schema = ProviderSchema(type="tavily", name="Tavily", capabilities=("search", "extract"),
-                            requires_key=True, key_pool_params="full", show_max_results=True,
-                            key_prefix="tvly-")
+    options_model = TavilyOptions
+    schema = ProviderSchema(
+        type="tavily",
+        name="Tavily",
+        capabilities=("search", "extract"),
+        auth=AuthSpec(mode="bearer", required=True, key_prefix="tvly-"),
+        endpoint=EndpointSpec(default="https://api.tavily.com", overridable=False),
+        fields=(
+            FieldSpec(
+                key="search_depth",
+                label="providers.fields.tavily.search_depth",
+                help="providers.fields.tavily.search_depth.help",
+                type="enum",
+                default="basic",
+                choices=("basic", "advanced"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="topic",
+                label="providers.fields.tavily.topic",
+                help="providers.fields.tavily.topic.help",
+                type="enum",
+                default="general",
+                choices=("general", "news", "finance"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="include_domains",
+                label="providers.fields.tavily.include_domains",
+                help="providers.fields.tavily.include_domains.help",
+                type="string_list",
+                default=[],
+                capability="search",
+                group="filters",
+            ),
+            FieldSpec(
+                key="exclude_domains",
+                label="providers.fields.tavily.exclude_domains",
+                help="providers.fields.tavily.exclude_domains.help",
+                type="string_list",
+                default=[],
+                capability="search",
+                group="filters",
+            ),
+            FieldSpec(
+                key="include_answer",
+                label="providers.fields.tavily.include_answer",
+                help="providers.fields.tavily.include_answer.help",
+                type="bool",
+                default=False,
+                capability="search",
+                group="content",
+            ),
+            FieldSpec(
+                key="include_raw_content",
+                label="providers.fields.tavily.include_raw_content",
+                help="providers.fields.tavily.include_raw_content.help",
+                type="bool",
+                default=False,
+                capability="search",
+                group="content",
+            ),
+            FieldSpec(
+                key="days",
+                label="providers.fields.tavily.days",
+                help="providers.fields.tavily.days.help",
+                type="int",
+                default=None,
+                capability="search",
+                group="filters",
+                advanced=True,
+            ),
+            FieldSpec(
+                key="extract_depth",
+                label="providers.fields.tavily.extract_depth",
+                help="providers.fields.tavily.extract_depth.help",
+                type="enum",
+                default="basic",
+                choices=("basic", "advanced"),
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="include_images",
+                label="providers.fields.tavily.include_images",
+                help="providers.fields.tavily.include_images.help",
+                type="bool",
+                default=False,
+                capability="extract",
+                group="extract",
+            ),
+        ),
+        tests=(
+            TestSpec(capability="search", query="searchhub connection test"),
+            TestSpec(
+                capability="extract",
+                urls=("https://example.com",),
+                expect_content=True,
+            ),
+        ),
+        key_pool_params="full",
+        description_key="providers.desc.tavily",
+        docs_url="https://docs.tavily.com/documentation/api-reference",
+    )
     SEARCH_URL = "https://api.tavily.com/search"
     EXTRACT_URL = "https://api.tavily.com/extract"
 

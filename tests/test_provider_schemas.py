@@ -1,6 +1,7 @@
 from dataclasses import asdict
 
 from searchhub.providers import PROVIDER_CLASSES
+from searchhub.providers.options import ExaOptions, TavilyOptions
 from searchhub.providers.schema import (
     AuthSpec,
     EndpointSpec,
@@ -71,3 +72,31 @@ def test_schema_derived_flags_and_asdict():
     assert s.key_prefix == "demo_"
     assert s.show_max_results is True
     assert asdict(s)["fields"][0]["key"] == "mode"
+
+
+def test_exa_schema():
+    s = PROVIDER_CLASSES["exa"].schema
+    assert s.auth.mode == "header"
+    assert s.auth.header_name == "x-api-key"
+    assert s.auth.required is True
+    assert s.endpoint.default == "https://api.exa.ai"
+    assert s.endpoint.overridable is False
+    assert {f.key for f in s.fields} >= {
+        "search_type", "category", "include_domains", "exclude_domains",
+        "include_text", "include_highlights", "include_summary",
+    }
+    assert {t.capability for t in s.tests} == {"search", "extract"}
+    assert PROVIDER_CLASSES["exa"].options_model is ExaOptions
+
+
+def test_tavily_schema():
+    s = PROVIDER_CLASSES["tavily"].schema
+    assert s.auth.mode == "bearer"
+    assert s.auth.key_prefix == "tvly-"
+    assert s.endpoint.default == "https://api.tavily.com"
+    assert {f.key for f in s.fields} >= {
+        "search_depth", "topic", "include_domains", "exclude_domains",
+        "include_answer", "include_raw_content", "extract_depth",
+    }
+    assert {t.capability for t in s.tests} == {"search", "extract"}
+    assert PROVIDER_CLASSES["tavily"].options_model is TavilyOptions

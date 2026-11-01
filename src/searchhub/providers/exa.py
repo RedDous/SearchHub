@@ -4,15 +4,122 @@ from typing import Any
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import ExaOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    EndpointSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 
 class ExaProvider(Provider):
     id = "exa"
     capabilities = frozenset({"search", "extract"})
     REQUIRES_KEY = True
-    schema = ProviderSchema(type="exa", name="Exa", capabilities=("search", "extract"),
-                            requires_key=True, key_pool_params="full", show_max_results=True)
+    options_model = ExaOptions
+    schema = ProviderSchema(
+        type="exa",
+        name="Exa",
+        capabilities=("search", "extract"),
+        auth=AuthSpec(mode="header", header_name="x-api-key", required=True),
+        endpoint=EndpointSpec(default="https://api.exa.ai", overridable=False),
+        fields=(
+            FieldSpec(
+                key="search_type",
+                label="providers.fields.exa.search_type",
+                help="providers.fields.exa.search_type.help",
+                type="enum",
+                default="auto",
+                choices=("auto", "lite", "deep"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="category",
+                label="providers.fields.exa.category",
+                help="providers.fields.exa.category.help",
+                type="string",
+                default=None,
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="include_domains",
+                label="providers.fields.exa.include_domains",
+                help="providers.fields.exa.include_domains.help",
+                type="string_list",
+                default=[],
+                capability="search",
+                group="filters",
+            ),
+            FieldSpec(
+                key="exclude_domains",
+                label="providers.fields.exa.exclude_domains",
+                help="providers.fields.exa.exclude_domains.help",
+                type="string_list",
+                default=[],
+                capability="search",
+                group="filters",
+            ),
+            FieldSpec(
+                key="start_published_date",
+                label="providers.fields.exa.start_published_date",
+                help="providers.fields.exa.start_published_date.help",
+                type="string",
+                default=None,
+                capability="search",
+                group="filters",
+                advanced=True,
+            ),
+            FieldSpec(
+                key="end_published_date",
+                label="providers.fields.exa.end_published_date",
+                help="providers.fields.exa.end_published_date.help",
+                type="string",
+                default=None,
+                capability="search",
+                group="filters",
+                advanced=True,
+            ),
+            FieldSpec(
+                key="include_text",
+                label="providers.fields.exa.include_text",
+                help="providers.fields.exa.include_text.help",
+                type="bool",
+                default=True,
+                group="content",
+            ),
+            FieldSpec(
+                key="include_highlights",
+                label="providers.fields.exa.include_highlights",
+                help="providers.fields.exa.include_highlights.help",
+                type="bool",
+                default=False,
+                group="content",
+            ),
+            FieldSpec(
+                key="include_summary",
+                label="providers.fields.exa.include_summary",
+                help="providers.fields.exa.include_summary.help",
+                type="bool",
+                default=False,
+                group="content",
+            ),
+        ),
+        tests=(
+            TestSpec(capability="search", query="searchhub connection test"),
+            TestSpec(
+                capability="extract",
+                urls=("https://example.com",),
+                expect_content=True,
+            ),
+        ),
+        key_pool_params="full",
+        description_key="providers.desc.exa",
+        docs_url="https://docs.exa.ai/reference/search",
+    )
     SEARCH_URL = "https://api.exa.ai/search"
     CONTENTS_URL = "https://api.exa.ai/contents"
 
