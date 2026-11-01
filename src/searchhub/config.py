@@ -17,6 +17,11 @@ _KEY_LINE = re.compile(r"^([A-Z][A-Z0-9_]*)=(.*)$")
 _BACKUP_COUNT = 5
 
 
+def key_prefix_for(provider_id: str) -> str:
+    """Env-var-safe secret prefix for an instance id (``exa-work`` -> ``EXA_WORK_KEY_``)."""
+    return re.sub(r"[^A-Z0-9]+", "_", provider_id.upper()) + "_KEY_"
+
+
 def _scrypt_hash(password: str) -> str:
     salt = _secrets.token_bytes(16)
     digest = hashlib.scrypt(password.encode(), salt=salt, n=2 ** 14, r=8, p=1)
@@ -56,7 +61,9 @@ class ProviderConfig(BaseModel):
     @model_validator(mode="after")
     def _default_type(self) -> "ProviderConfig":
         if not self.type:
-            self.type = self.id
+            # 用 object.__setattr__ 赋值，保持 model_fields_set 准确：
+            # 省略 type 时不能让它看起来像显式传入（admin API 依赖这一点判断类型不可变）。
+            object.__setattr__(self, "type", self.id)
         return self
 
 
@@ -155,7 +162,7 @@ class ConfigService:
         return self._secrets
 
     def provider_keys(self, provider_id: str) -> list[str]:
-        prefix = f"{provider_id.upper()}_KEY_"
+        prefix = key_prefix_for(provider_id)
         pairs = [
             (int(k[len(prefix):]), v)
             for k, v in self._secrets.items()
@@ -198,7 +205,7 @@ class ConfigService:
         key = key.strip()
         if not key:
             raise ValueError("key must not be empty")
-        prefix = f"{provider_id.upper()}_KEY_"
+        prefix = key_prefix_for(provider_id)
         secrets_map = dict(self._secrets)
         existing = [k for k in secrets_map if k.startswith(prefix) and k[len(prefix):].isdigit()]
         next_idx = max([int(k[len(prefix):]) for k in existing], default=0) + 1
@@ -206,7 +213,7 @@ class ConfigService:
         self.save_secrets(secrets_map)
 
     def remove_provider_key(self, provider_id: str, index: int) -> None:
-        prefix = f"{provider_id.upper()}_KEY_"
+        prefix = key_prefix_for(provider_id)
         pairs = sorted(
             (int(k[len(prefix):]), k)
             for k in self._secrets

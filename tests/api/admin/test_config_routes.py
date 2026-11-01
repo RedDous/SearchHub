@@ -330,3 +330,51 @@ def test_auto_retest_after_key_add(admin_client):
     st = data["provider_status"]["tavily"]
     assert st["status"] == "ok"
     assert st["test"]["capability"] == "search"
+
+
+def test_create_provider_with_type_and_custom_id(admin_client):
+    r = admin_client.post("/api/admin/providers", json={
+        "id": "exa-work", "type": "exa", "capabilities": ["search"],
+    })
+    assert r.status_code == 200
+    cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
+    assert cfg["providers"][0]["type"] == "exa"
+    assert cfg["providers"][0]["id"] == "exa-work"
+
+
+def test_create_provider_unknown_type_rejected(admin_client):
+    r = admin_client.post("/api/admin/providers", json={
+        "id": "nope", "type": "nope", "capabilities": ["search"],
+    })
+    assert r.status_code == 400
+
+
+def test_update_provider_type_immutable(admin_client):
+    admin_client.post("/api/admin/providers", json={
+        "id": "exa", "type": "exa", "capabilities": ["search"],
+    })
+    r = admin_client.put("/api/admin/providers/exa", json={
+        "id": "exa", "type": "tavily", "capabilities": ["search"],
+    })
+    assert r.status_code == 400
+
+
+def test_update_provider_without_type_keeps_existing_type(admin_client):
+    admin_client.post("/api/admin/providers", json={
+        "id": "exa-work", "type": "exa", "capabilities": ["search"],
+    })
+    r = admin_client.put("/api/admin/providers/exa-work", json={
+        "id": "exa-work", "capabilities": ["search"], "weight": 42,
+    })
+    assert r.status_code == 200
+    cfg = admin_client.get("/api/admin/config").json()["data"]["config"]
+    assert cfg["providers"][0]["type"] == "exa"
+    assert cfg["providers"][0]["weight"] == 42
+
+
+def test_create_provider_invalid_options_rejected(admin_client):
+    r = admin_client.post("/api/admin/providers", json={
+        "id": "exa", "type": "exa", "capabilities": ["search"],
+        "options": {"bogus": 1},
+    })
+    assert r.status_code == 400

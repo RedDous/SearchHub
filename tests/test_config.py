@@ -131,3 +131,24 @@ def test_duplicate_provider_ids_rejected():
             ProviderConfig(id="exa", type="exa", capabilities=["search"]),
             ProviderConfig(id="exa", type="exa", capabilities=["extract"]),
         ])
+
+
+def test_key_prefix_for_sanitizes_instance_id():
+    from searchhub.config import key_prefix_for
+
+    assert key_prefix_for("exa-work") == "EXA_WORK_KEY_"
+    assert key_prefix_for("exa") == "EXA_KEY_"
+
+
+def test_provider_keys_support_hyphenated_instance_id(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    cs.add_provider_key("exa-work", "k1")
+    assert cs.provider_keys("exa-work") == ["k1"]
+    assert cs.provider_keys("exa") == []
+    # 前缀必须能写回 secrets.env 并被重新解析（连字符会破坏 KEY=VALUE 语法）
+    cs2 = ConfigService(data_dir)
+    cs2.load()
+    assert cs2.provider_keys("exa-work") == ["k1"]
+    cs2.remove_provider_key("exa-work", 0)
+    assert cs2.provider_keys("exa-work") == []

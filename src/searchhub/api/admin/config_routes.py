@@ -6,12 +6,13 @@ from dataclasses import asdict
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from searchhub.api.admin.session import require_admin
 from searchhub.config import CacheConfig, HistoryConfig, ProviderConfig, StrategyConfig
 from searchhub import build_info
 from searchhub.providers import PROVIDER_CLASSES
+from searchhub.providers.options import validate_options
 from searchhub.providers.schema import ProviderSchema, validate_provider_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"],
@@ -50,6 +51,20 @@ def _save(svc, cfg) -> None:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+def _schema_for_type(provider_type: str) -> ProviderSchema | None:
+    """按适配器类型解析 schema；未知类型返回 None。"""
+    cls = PROVIDER_CLASSES.get(provider_type)
+    return cls.schema if cls is not None else None
+
+
+def _validated_options(provider_type: str, raw: dict) -> dict:
+    """校验并归一化 options（补全默认值）；未知键 → 400。"""
+    try:
+        return validate_options(provider_type, raw)
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"invalid options: {e}") from e
+
+
 def _schema_dict(schema: ProviderSchema) -> dict:
     """Serialize a schema, keeping the legacy derived flags in the response."""
     data = asdict(schema)
@@ -77,10 +92,13 @@ async def create_provider(body: ProviderConfig, request: Request, background: Ba
     svc.maybe_reload()
     if svc.get().provider(body.id) is not None:
         raise HTTPException(status_code=409, detail=f"provider {body.id} already exists")
-    schema = PROVIDER_CLASSES[body.id].schema if body.id in PROVIDER_CLASSES else None
+    schema = _schema_for_type(body.type)
+    if schema is None:
+        raise HTTPException(status_code=400, detail=f"unknown provider type: {body.type!r}")
     errors = validate_provider_config(body.id, body.capabilities, body.base_url, schema)
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
+    body.options = _validated_options(body.type, body.options)
     cfg = svc.get()
     cfg.providers.append(body)
     _save(svc, cfg)
@@ -98,10 +116,19 @@ async def update_provider(provider_id: str, body: ProviderConfig, request: Reque
         raise HTTPException(status_code=404, detail=f"provider {provider_id} not found")
     if body.id != provider_id:
         raise HTTPException(status_code=400, detail="provider id in body must match path")
-    schema = PROVIDER_CLASSES[body.id].schema if body.id in PROVIDER_CLASSES else None
+    existing = cfg.providers[idx]
+    if "type" in body.model_fields_set:
+        if body.type != existing.type:
+            raise HTTPException(status_code=400, detail="provider type cannot be changed")
+    else:
+        body.type = existing.type
+    schema = _schema_for_type(body.type)
+    if schema is None:
+        raise HTTPException(status_code=400, detail=f"unknown provider type: {body.type!r}")
     errors = validate_provider_config(body.id, body.capabilities, body.base_url, schema)
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
+    body.options = _validated_options(body.type, body.options)
     cfg.providers[idx] = body
     _save(svc, cfg)
     background.add_task(_auto_retest, request.app.state.engine, body.id)
@@ -153,7 +180,7 @@ def _provider_status_map(engine) -> dict:
     svc = engine.config
     out: dict[str, dict] = {}
     for pc in svc.get().providers:
-        cls = PROVIDER_CLASSES.get(pc.id)
+        cls = PROVIDER_CLASSES.get(pc.type)
         schema = cls.schema if cls else None
         if schema and schema.requires_key and not svc.provider_keys(pc.id):
             out[pc.id] = {"status": "missing_key", "test": None}
@@ -176,7 +203,7 @@ async def _auto_retest(engine, provider_id: str):
     if pc is None:
         engine.provider_tests.pop(provider_id, None)
         return
-    cls = PROVIDER_CLASSES.get(provider_id)
+    cls = PROVIDER_CLASSES.get(pc.type)
     schema = cls.schema if cls else None
     if (schema and schema.requires_key and not svc.provider_keys(provider_id)) or (
             schema and schema.requires_base_url and not pc.base_url):

@@ -1,22 +1,16 @@
 from __future__ import annotations
 
 import logging
-import re
 
 import httpx
 from pydantic import ValidationError
 
-from searchhub.config import AppConfig
+from searchhub.config import AppConfig, key_prefix_for
 from searchhub.providers.base import Provider
 
 log = logging.getLogger(__name__)
 
 PROVIDER_CLASSES: dict[str, type[Provider]] = {}
-
-
-def _key_prefix(provider_id: str) -> str:
-    """Env-var-safe key prefix for an instance id (``exa-work`` -> ``EXA_WORK_KEY_``)."""
-    return re.sub(r"[^A-Z0-9]+", "_", provider_id.upper()) + "_KEY_"
 
 
 def build_registry(cfg: AppConfig, secrets: dict[str, str],
@@ -29,7 +23,7 @@ def build_registry(cfg: AppConfig, secrets: dict[str, str],
         if cls is None:
             log.warning("provider %s: unknown adapter type %r, skipped", pc.id, pc.type)
             continue
-        prefix = _key_prefix(pc.id)
+        prefix = key_prefix_for(pc.id)
         keys = [secrets[k] for k in sorted(
             (k for k in secrets if k.startswith(prefix) and k[len(prefix):].isdigit()),
             key=lambda k: int(k[len(prefix):]),
