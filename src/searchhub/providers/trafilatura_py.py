@@ -6,7 +6,13 @@ import re
 from searchhub.engine.rate_limit import TokenBucket
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import TrafilaturaOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 
@@ -15,8 +21,81 @@ class TrafilaturaProvider(Provider):
     id = "trafilatura"
     capabilities = frozenset({"extract"})
     REQUIRES_KEY = False
-    schema = ProviderSchema(type="trafilatura", name="Trafilatura", capabilities=("extract",),
-                            key_pool_params="rps")
+    options_model = TrafilaturaOptions
+    schema = ProviderSchema(
+        type="trafilatura",
+        name="Trafilatura",
+        capabilities=("extract",),
+        auth=AuthSpec(mode="none"),
+        fields=(
+            FieldSpec(
+                key="favor_precision",
+                label="providers.fields.trafilatura.favor_precision",
+                help="providers.fields.trafilatura.favor_precision.help",
+                type="bool",
+                default=False,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="favor_recall",
+                label="providers.fields.trafilatura.favor_recall",
+                help="providers.fields.trafilatura.favor_recall.help",
+                type="bool",
+                default=False,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="include_comments",
+                label="providers.fields.trafilatura.include_comments",
+                help="providers.fields.trafilatura.include_comments.help",
+                type="bool",
+                default=True,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="include_tables",
+                label="providers.fields.trafilatura.include_tables",
+                help="providers.fields.trafilatura.include_tables.help",
+                type="bool",
+                default=True,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="deduplicate",
+                label="providers.fields.trafilatura.deduplicate",
+                help="providers.fields.trafilatura.deduplicate.help",
+                type="bool",
+                default=False,
+                capability="extract",
+                group="advanced",
+                advanced=True,
+            ),
+            FieldSpec(
+                key="target_language",
+                label="providers.fields.trafilatura.target_language",
+                help="providers.fields.trafilatura.target_language.help",
+                type="string",
+                default=None,
+                capability="extract",
+                group="advanced",
+                advanced=True,
+            ),
+        ),
+        tests=(
+            TestSpec(
+                capability="extract",
+                urls=("https://example.com",),
+                expect_content=True,
+            ),
+        ),
+        key_pool_params="rps",
+        description_key="providers.desc.trafilatura",
+        docs_url="https://trafilatura.readthedocs.io/en/latest/usage-python.html",
+    )
 
     def __init__(self, cfg, keys, http):
         super().__init__(cfg, keys, http)

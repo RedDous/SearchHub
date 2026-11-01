@@ -3,15 +3,84 @@ from __future__ import annotations
 from searchhub.engine.rate_limit import TokenBucket
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import SearxngOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    EndpointSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 
 class SearxngProvider(Provider):
     id = "searxng"
     capabilities = frozenset({"search"})
     REQUIRES_KEY = False
-    schema = ProviderSchema(type="searxng", name="SearXNG", capabilities=("search",),
-                            requires_base_url=True, key_pool_params="rps", show_max_results=True)
+    options_model = SearxngOptions
+    schema = ProviderSchema(
+        type="searxng",
+        name="SearXNG",
+        capabilities=("search",),
+        auth=AuthSpec(mode="none"),
+        endpoint=EndpointSpec(overridable=True, required=True),
+        fields=(
+            FieldSpec(
+                key="categories",
+                label="providers.fields.searxng.categories",
+                help="providers.fields.searxng.categories.help",
+                type="string_list",
+                default=["general"],
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="language",
+                label="providers.fields.searxng.language",
+                help="providers.fields.searxng.language.help",
+                type="string",
+                default="all",
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="safesearch",
+                label="providers.fields.searxng.safesearch",
+                help="providers.fields.searxng.safesearch.help",
+                type="enum",
+                default="1",
+                choices=("0", "1", "2"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="time_range",
+                label="providers.fields.searxng.time_range",
+                help="providers.fields.searxng.time_range.help",
+                type="enum",
+                default="",
+                choices=("", "day", "week", "month", "year"),
+                capability="search",
+                group="search",
+            ),
+            FieldSpec(
+                key="engines",
+                label="providers.fields.searxng.engines",
+                help="providers.fields.searxng.engines.help",
+                type="string_list",
+                default=[],
+                capability="search",
+                group="advanced",
+                advanced=True,
+            ),
+        ),
+        tests=(
+            TestSpec(capability="search", query="searchhub connection test"),
+        ),
+        key_pool_params="rps",
+        description_key="providers.desc.searxng",
+        docs_url="https://docs.searxng.org/dev/search_api.html",
+    )
 
     def __init__(self, cfg, keys, http):
         super().__init__(cfg, keys, http)

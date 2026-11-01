@@ -1,7 +1,14 @@
 from dataclasses import asdict
 
 from searchhub.providers import PROVIDER_CLASSES
-from searchhub.providers.options import ExaOptions, TavilyOptions
+from searchhub.providers.options import (
+    DdgOptions,
+    ExaOptions,
+    JinaOptions,
+    SearxngOptions,
+    TavilyOptions,
+    TrafilaturaOptions,
+)
 from searchhub.providers.schema import (
     AuthSpec,
     EndpointSpec,
@@ -100,3 +107,39 @@ def test_tavily_schema():
     }
     assert {t.capability for t in s.tests} == {"search", "extract"}
     assert PROVIDER_CLASSES["tavily"].options_model is TavilyOptions
+
+
+def test_ddg_schema():
+    s = PROVIDER_CLASSES["ddg"].schema
+    assert s.auth.mode == "none"
+    assert {f.key for f in s.fields} >= {"region", "safesearch", "timelimit"}
+    assert {t.capability for t in s.tests} == {"search"}
+    assert PROVIDER_CLASSES["ddg"].options_model is DdgOptions
+
+
+def test_searxng_schema():
+    s = PROVIDER_CLASSES["searxng"].schema
+    assert s.endpoint.required is True
+    assert s.endpoint.overridable is True
+    assert {f.key for f in s.fields} >= {"categories", "language", "safesearch", "time_range"}
+    assert PROVIDER_CLASSES["searxng"].options_model is SearxngOptions
+
+
+def test_jina_schema():
+    s = PROVIDER_CLASSES["jina"].schema
+    assert s.auth.mode == "bearer"
+    assert s.auth.optional is True
+    assert s.endpoint.default == "https://r.jina.ai/"
+    assert s.endpoint.overridable is True
+    assert {f.key for f in s.fields} >= {"target_selector", "timeout_s", "no_cache"}
+    assert PROVIDER_CLASSES["jina"].options_model is JinaOptions
+
+
+def test_trafilatura_schema():
+    s = PROVIDER_CLASSES["trafilatura"].schema
+    assert s.auth.mode == "none"
+    assert {f.key for f in s.fields} >= {
+        "favor_precision", "favor_recall",
+        "include_comments", "include_tables",
+    }
+    assert PROVIDER_CLASSES["trafilatura"].options_model is TrafilaturaOptions

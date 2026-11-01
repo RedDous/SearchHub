@@ -4,7 +4,14 @@ import re
 
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider
-from searchhub.providers.schema import ProviderSchema
+from searchhub.providers.options import JinaOptions
+from searchhub.providers.schema import (
+    AuthSpec,
+    EndpointSpec,
+    FieldSpec,
+    ProviderSchema,
+    TestSpec,
+)
 
 _TITLE_RE = re.compile(r"^#+\s*(.+?)\s*$", re.M)
 
@@ -14,9 +21,66 @@ class JinaProvider(Provider):
     capabilities = frozenset({"extract"})
     REQUIRES_KEY = False
     BASE = "https://r.jina.ai/"
-    schema = ProviderSchema(type="jina", name="Jina Reader", capabilities=("extract",),
-                            optional_key=True, key_pool_params="full",
-                            key_prefix="jina_")
+    options_model = JinaOptions
+    schema = ProviderSchema(
+        type="jina",
+        name="Jina Reader",
+        capabilities=("extract",),
+        auth=AuthSpec(mode="bearer", optional=True, key_prefix="jina_"),
+        endpoint=EndpointSpec(default="https://r.jina.ai/", overridable=True, required=False),
+        fields=(
+            FieldSpec(
+                key="target_selector",
+                label="providers.fields.jina.target_selector",
+                help="providers.fields.jina.target_selector.help",
+                type="string",
+                default=None,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="wait_for_selector",
+                label="providers.fields.jina.wait_for_selector",
+                help="providers.fields.jina.wait_for_selector.help",
+                type="string",
+                default=None,
+                capability="extract",
+                group="extract",
+            ),
+            FieldSpec(
+                key="timeout_s",
+                label="providers.fields.jina.timeout_s",
+                help="providers.fields.jina.timeout_s.help",
+                type="int",
+                default=None,
+                capability="extract",
+                group="advanced",
+                min=1,
+                max=120,
+                advanced=True,
+            ),
+            FieldSpec(
+                key="no_cache",
+                label="providers.fields.jina.no_cache",
+                help="providers.fields.jina.no_cache.help",
+                type="bool",
+                default=False,
+                capability="extract",
+                group="advanced",
+                advanced=True,
+            ),
+        ),
+        tests=(
+            TestSpec(
+                capability="extract",
+                urls=("https://example.com",),
+                expect_content=True,
+            ),
+        ),
+        key_pool_params="full",
+        description_key="providers.desc.jina",
+        docs_url="https://jina.ai/reader/",
+    )
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
         raise NotImplementedError
