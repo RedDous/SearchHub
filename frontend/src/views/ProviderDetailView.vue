@@ -50,7 +50,7 @@
             <n-input :value="form.type" disabled />
           </n-form-item>
           <n-form-item :label="t('providers.id')">
-            <n-input v-model:value="form.id" :disabled="!isNew" :placeholder="form.type" />
+            <n-input v-model:value="form.id" :disabled="!isNew || !!entry" :placeholder="form.type" />
           </n-form-item>
           <n-form-item :label="t('providers.capabilities')">
             <n-checkbox-group v-model:value="form.capabilities">
