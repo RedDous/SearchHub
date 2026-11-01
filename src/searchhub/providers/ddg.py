@@ -16,7 +16,6 @@ from searchhub.providers.schema import (
 class DdgProvider(Provider):
     id = "ddg"
     capabilities = frozenset({"search"})
-    REQUIRES_KEY = False
     options_model = DdgOptions
     schema = ProviderSchema(
         type="ddg",

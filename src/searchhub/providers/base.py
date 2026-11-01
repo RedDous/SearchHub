@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 import httpx
+from pydantic import BaseModel
 
 from searchhub.config import ProviderConfig
 from searchhub.models import ExtractItem, SearchItem
@@ -24,11 +25,18 @@ class Provider(ABC):
     id: str = ""
     capabilities: frozenset[str] = frozenset()
     schema: ProviderSchema = ProviderSchema(type="", name="")
+    options_model: type[BaseModel] | None = None
+    options: BaseModel | None = None
 
     def __init__(self, cfg: ProviderConfig, keys: list[str], http: httpx.AsyncClient):
         self.cfg = cfg
         self.keys = keys
         self.http = http
+        self.options = (
+            self.options_model.model_validate(cfg.options)
+            if self.options_model is not None
+            else None
+        )
         if keys:
             self.key_pool = KeyPool(
                 keys,
@@ -40,7 +48,7 @@ class Provider(ABC):
             self.key_pool = None
 
     def supports(self, cap: str) -> bool:
-        return cap in self.capabilities
+        return cap in self.cfg.capabilities
 
     @abstractmethod
     async def search(self, query: str, limit: int) -> list[SearchItem]: ...

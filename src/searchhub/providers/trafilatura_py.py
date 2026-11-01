@@ -20,7 +20,6 @@ _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 class TrafilaturaProvider(Provider):
     id = "trafilatura"
     capabilities = frozenset({"extract"})
-    REQUIRES_KEY = False
     options_model = TrafilaturaOptions
     schema = ProviderSchema(
         type="trafilatura",

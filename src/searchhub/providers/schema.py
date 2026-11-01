@@ -70,35 +70,39 @@ class ProviderSchema:
     type: str
     name: str
     capabilities: tuple[str, ...] = ()
-    # Legacy fields: kept until every provider migrates (Task 6 turns them
-    # into read-only properties derived from auth / endpoint / capabilities).
-    requires_key: bool = False
-    optional_key: bool = False
-    requires_base_url: bool = False
     key_pool_params: KeyPoolParams = "none"
-    key_prefix: str | None = None
-    show_max_results: bool = False
-    show_options: bool = False
-    # New declarative specs; None means the provider has not migrated yet.
-    auth: AuthSpec | None = None
-    endpoint: EndpointSpec | None = None
+    auth: AuthSpec = AuthSpec()
+    endpoint: EndpointSpec = EndpointSpec()
     fields: tuple[FieldSpec, ...] = ()
     tests: tuple[TestSpec, ...] = ()
     description_key: str | None = None
     docs_url: str | None = None
 
-    def __post_init__(self) -> None:
-        # Sync the legacy flags only for migrated providers, so that the
-        # un-migrated ones keep working with their explicit legacy values.
-        if self.auth is not None:
-            object.__setattr__(self, "requires_key", self.auth.required)
-            object.__setattr__(self, "optional_key", self.auth.optional)
-            object.__setattr__(self, "key_prefix", self.auth.key_prefix)
-        if self.endpoint is not None:
-            object.__setattr__(self, "requires_base_url", self.endpoint.required)
-        if self.auth is not None or self.endpoint is not None:
-            object.__setattr__(
-                self, "show_max_results", "search" in self.capabilities)
+    # Legacy flag names kept as read-only properties for compatibility with
+    # the admin API and existing call sites.
+    @property
+    def requires_key(self) -> bool:
+        return self.auth.required
+
+    @property
+    def optional_key(self) -> bool:
+        return self.auth.optional
+
+    @property
+    def requires_base_url(self) -> bool:
+        return self.endpoint.required
+
+    @property
+    def key_prefix(self) -> str | None:
+        return self.auth.key_prefix
+
+    @property
+    def show_max_results(self) -> bool:
+        return "search" in self.capabilities
+
+    @property
+    def show_options(self) -> bool:
+        return False
 
 
 def validate_provider_config(provider_id: str, capabilities: list[str],
@@ -107,12 +111,7 @@ def validate_provider_config(provider_id: str, capabilities: list[str],
     if schema is None:
         return []
     errors: list[str] = []
-    # Prefer the declarative endpoint spec; fall back to the legacy flag.
-    requires_base_url = (
-        schema.endpoint.required if schema.endpoint is not None
-        else schema.requires_base_url
-    )
-    if requires_base_url and not (base_url or "").strip():
+    if schema.endpoint.required and not (base_url or "").strip():
         errors.append(f"{provider_id} requires base_url")
     allowed = set(schema.capabilities)
     for c in capabilities:

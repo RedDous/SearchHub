@@ -19,7 +19,6 @@ _TITLE_RE = re.compile(r"^#+\s*(.+?)\s*$", re.M)
 class JinaProvider(Provider):
     id = "jina"
     capabilities = frozenset({"extract"})
-    REQUIRES_KEY = False
     BASE = "https://r.jina.ai/"
     options_model = JinaOptions
     schema = ProviderSchema(

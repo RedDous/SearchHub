@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import re
 
 import httpx
+from pydantic import ValidationError
 
 from searchhub.config import AppConfig
 from searchhub.providers.base import Provider
@@ -12,24 +14,33 @@ log = logging.getLogger(__name__)
 PROVIDER_CLASSES: dict[str, type[Provider]] = {}
 
 
+def _key_prefix(provider_id: str) -> str:
+    """Env-var-safe key prefix for an instance id (``exa-work`` -> ``EXA_WORK_KEY_``)."""
+    return re.sub(r"[^A-Z0-9]+", "_", provider_id.upper()) + "_KEY_"
+
+
 def build_registry(cfg: AppConfig, secrets: dict[str, str],
                    http: httpx.AsyncClient) -> dict[str, Provider]:
     registry: dict[str, Provider] = {}
     for pc in cfg.providers:
         if not pc.enabled:
             continue
-        cls = PROVIDER_CLASSES.get(pc.id)
+        cls = PROVIDER_CLASSES.get(pc.type)
         if cls is None:
-            log.warning("provider %s: unknown adapter class, skipped", pc.id)
+            log.warning("provider %s: unknown adapter type %r, skipped", pc.id, pc.type)
             continue
+        prefix = _key_prefix(pc.id)
         keys = [secrets[k] for k in sorted(
-            (k for k in secrets if k.startswith(f"{pc.id.upper()}_KEY_") and k.rsplit("_", 1)[-1].isdigit()),
-            key=lambda k: int(k.rsplit("_", 1)[-1]),
+            (k for k in secrets if k.startswith(prefix) and k[len(prefix):].isdigit()),
+            key=lambda k: int(k[len(prefix):]),
         )]
-        if pc.capabilities and cls.REQUIRES_KEY and not keys:
+        if pc.capabilities and cls.schema.auth.required and not keys:
             log.warning("provider %s: no API key configured, skipped", pc.id)
             continue
-        registry[pc.id] = cls(pc, keys, http)
+        try:
+            registry[pc.id] = cls(pc, keys, http)
+        except ValidationError as e:
+            log.warning("provider %s: invalid options, skipped: %s", pc.id, e)
     return registry
 
 

@@ -12,7 +12,7 @@ from searchhub.api.admin.session import require_admin
 from searchhub.config import CacheConfig, HistoryConfig, ProviderConfig, StrategyConfig
 from searchhub import build_info
 from searchhub.providers import PROVIDER_CLASSES
-from searchhub.providers.schema import validate_provider_config
+from searchhub.providers.schema import ProviderSchema, validate_provider_config
 
 router = APIRouter(prefix="/api/admin", tags=["admin"],
                    dependencies=[Depends(require_admin)])
@@ -50,9 +50,23 @@ def _save(svc, cfg) -> None:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
+def _schema_dict(schema: ProviderSchema) -> dict:
+    """Serialize a schema, keeping the legacy derived flags in the response."""
+    data = asdict(schema)
+    data.update(
+        requires_key=schema.requires_key,
+        optional_key=schema.optional_key,
+        requires_base_url=schema.requires_base_url,
+        key_prefix=schema.key_prefix,
+        show_max_results=schema.show_max_results,
+        show_options=schema.show_options,
+    )
+    return data
+
+
 @router.get("/provider-types")
 async def provider_types():
-    types = [asdict(PROVIDER_CLASSES[pid].schema)
+    types = [_schema_dict(PROVIDER_CLASSES[pid].schema)
              for pid in sorted(PROVIDER_CLASSES)]
     return {"success": True, "data": {"types": types}}
 

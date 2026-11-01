@@ -16,7 +16,6 @@ from searchhub.providers.schema import (
 class SearxngProvider(Provider):
     id = "searxng"
     capabilities = frozenset({"search"})
-    REQUIRES_KEY = False
     options_model = SearxngOptions
     schema = ProviderSchema(
         type="searxng",

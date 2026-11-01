@@ -17,7 +17,6 @@ from searchhub.providers.schema import (
 class ExaProvider(Provider):
     id = "exa"
     capabilities = frozenset({"search", "extract"})
-    REQUIRES_KEY = True
     options_model = ExaOptions
     schema = ProviderSchema(
         type="exa",

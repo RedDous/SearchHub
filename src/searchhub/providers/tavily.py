@@ -15,7 +15,6 @@ from searchhub.providers.schema import (
 class TavilyProvider(Provider):
     id = "tavily"
     capabilities = frozenset({"search", "extract"})
-    REQUIRES_KEY = True
     options_model = TavilyOptions
     schema = ProviderSchema(
         type="tavily",
