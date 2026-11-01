@@ -5,7 +5,7 @@ import time
 from dataclasses import asdict
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ValidationError
 
 from searchhub.api.admin.session import require_admin
@@ -199,9 +199,17 @@ _DEFAULT_TESTS: dict[str, TestSpec] = {
 }
 
 
-def _test_specs(schema: ProviderSchema | None,
-                capabilities: list[str]) -> list[TestSpec]:
-    """Resolve the TestSpec for each enabled capability (defaults if absent)."""
+def _test_specs(schema: ProviderSchema | None, capabilities: list[str],
+                capability: str | None = None) -> list[TestSpec]:
+    """Resolve TestSpecs for all enabled capabilities or one selected capability."""
+    if capability is not None:
+        if capability not in capabilities or (
+                schema is not None and capability not in schema.capabilities):
+            raise HTTPException(
+                status_code=400,
+                detail=f"unsupported capability: {capability!r}",
+            )
+        capabilities = [capability]
     declared = {t.capability: t for t in (schema.tests if schema else ())}
     return [declared.get(cap, _DEFAULT_TESTS.get(cap, TestSpec(capability=cap)))
             for cap in capabilities]
@@ -226,6 +234,11 @@ def _provider_status_map(engine) -> dict:
     svc = engine.config
     out: dict[str, dict] = {}
     for pc in svc.get().providers:
+        try:
+            validate_options(pc.type, pc.options)
+        except ValidationError:
+            out[pc.id] = {"status": "invalid_config", "test": None, "tests": {}}
+            continue
         cls = PROVIDER_CLASSES.get(pc.type)
         schema = cls.schema if cls else None
         if schema and schema.requires_key and not svc.provider_keys(pc.id):
@@ -282,7 +295,8 @@ async def _auto_retest(engine, provider_id: str):
 
 
 @router.post("/providers/{provider_id}/test")
-async def test_provider(provider_id: str, request: Request):
+async def test_provider(provider_id: str, request: Request,
+                        capability: str | None = Query(default=None)):
     svc = request.app.state.engine.config
     svc.maybe_reload()
     pc = svc.get().provider(provider_id)
@@ -291,7 +305,7 @@ async def test_provider(provider_id: str, request: Request):
         raise HTTPException(status_code=404,
                             detail=f"provider {provider_id} not found or unsupported")
     keys = svc.provider_keys(provider_id)
-    specs = _test_specs(cls.schema, pc.capabilities)
+    specs = _test_specs(cls.schema, pc.capabilities, capability)
     async with httpx.AsyncClient(timeout=10) as http:
         provider = cls(pc, keys, http)
         results = await _run_tests(provider, specs)
@@ -299,7 +313,8 @@ async def test_provider(provider_id: str, request: Request):
 
 
 @router.post("/providers/test")
-async def test_provider_draft(body: ProviderConfig, request: Request):
+async def test_provider_draft(body: ProviderConfig, request: Request,
+                              capability: str | None = Query(default=None)):
     """用表单中未保存的配置测试（新建模式）。供应商需为已知类型。"""
     svc = request.app.state.engine.config
     svc.maybe_reload()
@@ -311,8 +326,9 @@ async def test_provider_draft(body: ProviderConfig, request: Request):
     errors = validate_provider_config(body.id, body.capabilities, body.base_url, schema)
     if errors:
         raise HTTPException(status_code=400, detail="; ".join(errors))
+    body.options = _validated_options(body.type, body.options)
     keys = svc.provider_keys(body.id)
-    specs = _test_specs(schema, body.capabilities)
+    specs = _test_specs(schema, body.capabilities, capability)
     async with httpx.AsyncClient(timeout=10) as http:
         provider = cls(body, keys, http)
         results = await _run_tests(provider, specs)

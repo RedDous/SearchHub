@@ -103,6 +103,68 @@ def test_provider_test_runs_all_capabilities(admin_client, monkeypatch):
     assert caps == {"search", "extract"}
 
 
+def test_provider_test_capability_selector_runs_only_requested(admin_client, monkeypatch):
+    from searchhub.models import ExtractItem, SearchItem
+    from searchhub.providers.exa import ExaProvider
+
+    seen: list[str] = []
+
+    async def fake_search(self, query, limit):
+        seen.append("search")
+        return [SearchItem(title="t", url="https://x.com", provider=self.id)]
+
+    async def fake_extract(self, urls, **kw):
+        seen.append("extract")
+        return [ExtractItem(url=urls[0], content="ok", provider=self.id)]
+
+    monkeypatch.setattr(ExaProvider, "search", fake_search)
+    monkeypatch.setattr(ExaProvider, "extract", fake_extract)
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "exa", "type": "exa", "capabilities": ["search", "extract"],
+    }).status_code == 200
+    r = admin_client.post("/api/admin/providers/exa/test?capability=extract")
+    assert r.status_code == 200
+    assert [x["capability"] for x in r.json()["data"]["results"]] == ["extract"]
+    assert seen == ["extract"]
+
+
+def test_test_draft_capability_selector_runs_only_requested(admin_client, monkeypatch):
+    from searchhub.models import ExtractItem, SearchItem
+    from searchhub.providers.exa import ExaProvider
+
+    seen: list[str] = []
+
+    async def fake_search(self, query, limit):
+        seen.append("search")
+        return [SearchItem(title="t", url="https://x.com", provider=self.id)]
+
+    async def fake_extract(self, urls, **kw):
+        seen.append("extract")
+        return [ExtractItem(url=urls[0], content="ok", provider=self.id)]
+
+    monkeypatch.setattr(ExaProvider, "search", fake_search)
+    monkeypatch.setattr(ExaProvider, "extract", fake_extract)
+    r = admin_client.post("/api/admin/providers/test?capability=search", json={
+        "id": "exa", "type": "exa", "capabilities": ["search", "extract"],
+    })
+    assert r.status_code == 200
+    assert [x["capability"] for x in r.json()["data"]["results"]] == ["search"]
+    assert seen == ["search"]
+
+
+def test_provider_test_rejects_unsupported_capability(admin_client):
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "ddg", "type": "ddg", "capabilities": ["search"],
+    }).status_code == 200
+    assert admin_client.post(
+        "/api/admin/providers/ddg/test?capability=crawl").status_code == 400
+    assert admin_client.post(
+        "/api/admin/providers/ddg/test?capability=extract").status_code == 400
+    assert admin_client.post("/api/admin/providers/test?capability=crawl", json={
+        "id": "ddg", "type": "ddg", "capabilities": ["search"],
+    }).status_code == 400
+
+
 def test_extract_item_error_marks_test_failed(admin_client, monkeypatch):
     from searchhub.models import ExtractItem
     from searchhub.providers.trafilatura_py import TrafilaturaProvider
@@ -199,6 +261,30 @@ def test_provider_status_reports_per_capability_tests(admin_client, monkeypatch)
     assert st["tests"]["search"]["success"] is True
     assert st["tests"]["extract"]["success"] is False
     assert st["status"] == "failed"
+
+
+def test_provider_status_invalid_config_discards_stale_tests(admin_client, data_dir, monkeypatch):
+    from searchhub.config import ConfigService
+    from searchhub.models import SearchItem
+    from searchhub.providers.ddg import DdgProvider
+
+    async def fake_search(self, query, limit):
+        return [SearchItem(title="t", url="https://x.com", provider=self.id)]
+
+    monkeypatch.setattr(DdgProvider, "search", fake_search)
+    assert admin_client.post("/api/admin/providers", json={
+        "id": "ddg", "type": "ddg", "capabilities": ["search"],
+    }).status_code == 200
+    assert admin_client.post("/api/admin/providers/ddg/test").status_code == 200
+
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.providers[0].options = {"bogus": 1}
+    cs.save_config(cfg)
+
+    status = admin_client.get("/api/admin/config").json()["data"]["provider_status"]["ddg"]
+    assert status == {"status": "invalid_config", "test": None, "tests": {}}
 
 
 def test_settings_partial_update(admin_client):
@@ -315,6 +401,27 @@ def test_test_draft_known_type(admin_client):
     body = r.json()
     assert body["success"] is True
     assert body["data"]["results"][0]["capability"] == "search"
+
+
+def test_test_draft_invalid_options_rejected(data_dir):
+    from fastapi.testclient import TestClient
+
+    from searchhub.api.app import create_app
+    from searchhub.config import ConfigService
+
+    cs = ConfigService(data_dir)
+    cs.load()
+    cs.set_admin_password("testpass123")
+    with TestClient(create_app(data_dir), raise_server_exceptions=False) as client:
+        login = client.post("/api/admin/login",
+                            json={"username": "admin", "password": "testpass123"})
+        assert login.status_code == 200
+        r = client.post("/api/admin/providers/test", json={
+            "id": "ddg", "type": "ddg", "capabilities": ["search"],
+            "options": {"bogus": 1},
+        })
+    assert r.status_code == 400
+    assert "invalid options" in r.json()["error"]
 
 
 def test_test_draft_unknown_type_rejected(admin_client):

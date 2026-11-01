@@ -1,11 +1,13 @@
 import asyncio
+from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
 
 import httpx
 import pytest
+import yaml
 
-from searchhub.config import ConfigService, ProviderConfig
+from searchhub.config import AppConfig, ConfigService, ProviderConfig
 from searchhub.models import SearchItem
 from searchhub.orchestrator import SearchHubEngine
 
@@ -60,6 +62,22 @@ class VersionBumpingProvider(FakeProvider):
                             provider=self.id) for u in urls]
 
 
+class OptionsProvider(FakeProvider):
+    def __init__(self, cfg):
+        super().__init__(cfg.id)
+        self.cfg = cfg
+
+    async def search(self, query, limit):
+        marker = self.cfg.options["region"]
+        return [SearchItem(title=marker, url="https://example.com",
+                           position=0, provider=self.id)]
+
+    async def extract(self, urls, **kw):
+        from searchhub.models import ExtractItem
+        marker = self.cfg.options["region"]
+        return [ExtractItem(url=u, content=marker, provider=self.id) for u in urls]
+
+
 def make_engine(data_dir: Path, providers, strategy="fanout"):
     cs = ConfigService(data_dir)
     cs.load()
@@ -73,6 +91,75 @@ def make_engine(data_dir: Path, providers, strategy="fanout"):
     eng._registry = {p["id"]: p["obj"] for p in providers}
     eng._version = cs.config_version
     return eng
+
+
+def make_restart_engine(data_dir: Path, marker: str) -> SearchHubEngine:
+    from searchhub.storage.cache import CacheRepo
+
+    if not (data_dir / "config.yaml").exists():
+        data_dir.mkdir(parents=True, exist_ok=True)
+        initial = AppConfig(providers=[ProviderConfig(
+            id="ddg", type="ddg", capabilities=["search", "extract"],
+            options={"region": "old"},
+        )])
+        (data_dir / "config.yaml").write_text(
+            yaml.safe_dump(initial.model_dump(mode="json"), sort_keys=False)
+        )
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.providers[0].options["region"] = marker
+    cs.save_config(cfg)
+    eng = SearchHubEngine(cs, CacheRepo(data_dir / "cache.db"), httpx.AsyncClient())
+    eng._registry = {"ddg": OptionsProvider(cfg.providers[0])}
+    eng._version = cs.config_version
+    return eng
+
+
+async def close_engine(eng: SearchHubEngine) -> None:
+    await eng.http.aclose()
+    if eng.cache is not None:
+        await eng.cache.close()
+
+
+@pytest.mark.asyncio
+async def test_search_cache_does_not_reuse_version_after_restart_and_options_change(data_dir):
+    first = make_restart_engine(data_dir, "old")
+    try:
+        assert first.config.config_version == 1
+        r1 = await first.search("python")
+        assert r1.data.web[0].title == "old"
+    finally:
+        await close_engine(first)
+
+    second = make_restart_engine(data_dir, "new")
+    try:
+        assert second.config.config_version == 1
+        r2 = await second.search("python")
+        assert r2.meta["cached"] is False
+        assert r2.data.web[0].title == "new"
+    finally:
+        await close_engine(second)
+
+
+@pytest.mark.asyncio
+async def test_extract_cache_does_not_reuse_version_after_restart_and_options_change(data_dir):
+    first = make_restart_engine(data_dir, "old")
+    try:
+        assert first.config.config_version == 1
+        r1 = await first.extract(["https://example.com"])
+        assert r1.data[0].content == "old"
+    finally:
+        await close_engine(first)
+
+    second = make_restart_engine(data_dir, "new")
+    try:
+        assert second.config.config_version == 1
+        r2 = await second.extract(["https://example.com"])
+        assert r2.meta["cached"] is False
+        assert r2.data[0].content == "new"
+    finally:
+        await close_engine(second)
 
 
 @pytest.mark.asyncio
@@ -145,7 +232,7 @@ async def test_extract_merges_and_caches(data_dir):
 
 
 @pytest.mark.asyncio
-async def test_extract_uses_config_version_snapshot(data_dir):
+async def test_extract_uses_config_fingerprint_snapshot(data_dir):
     from searchhub.storage.cache import CacheRepo
 
     cs = ConfigService(data_dir)
@@ -162,13 +249,13 @@ async def test_extract_uses_config_version_snapshot(data_dir):
     assert r1.meta["cached"] is False
     assert r1.data[0].content == "call1:https://x.com"
 
-    # Config was saved during the fetch, so the engine now runs under the new
-    # version. Results fetched under the old version must not be served here.
+    # A bookkeeping-only save does not change the effective runtime config,
+    # so the result fetched under the same fingerprint is safe to serve.
     eng._registry = {"a": provider}
     eng._version = cs.config_version
     r2 = await eng.extract(["https://x.com"])
-    assert r2.meta["cached"] is False
-    assert r2.data[0].content == "call2:https://x.com"
+    assert r2.meta["cached"] is True
+    assert r2.data[0].content == "call1:https://x.com"
 
 
 def test_record_test_keeps_capabilities_separate(data_dir):
@@ -179,6 +266,25 @@ def test_record_test_keeps_capabilities_separate(data_dir):
     eng.record_test("exa", "extract", success=False, count=0, took_ms=20, error="boom")
     assert eng.provider_tests["exa"]["search"]["success"] is True
     assert eng.provider_tests["exa"]["extract"]["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_real_calls_do_not_overwrite_manual_test_results(data_dir):
+    eng = make_engine(data_dir, [{"id": "a", "obj": FakeProvider("a")}])
+    try:
+        eng.record_test("a", "search", success=False, count=0, took_ms=5,
+                        error="manual search")
+        eng.record_test("a", "extract", success=False, count=0, took_ms=6,
+                        error="manual extract")
+        manual = deepcopy(eng.provider_tests)
+
+        await eng.search("python")
+        await eng.extract(["https://x.com"])
+
+        assert eng.provider_tests == manual
+        assert eng.stats["a"]["calls"] == 2
+    finally:
+        await close_engine(eng)
 
 
 def test_provider_status_reports_instance_capabilities_and_tests(data_dir):

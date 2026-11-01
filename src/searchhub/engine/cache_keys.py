@@ -1,28 +1,35 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from searchhub.config import AppConfig
 
 
 def _h(s: str) -> str:
     return hashlib.sha1(s.encode()).hexdigest()
 
 
+def config_fingerprint(config: AppConfig) -> str:
+    """Hash the effective runtime configuration, excluding secrets and settings
+    that do not affect provider execution."""
+    runtime = {
+        "providers": [p.model_dump(mode="json") for p in config.providers],
+        "strategy": config.strategy.model_dump(mode="json"),
+    }
+    canonical = json.dumps(runtime, ensure_ascii=False, sort_keys=True,
+                           separators=(",", ":"))
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
 def search_cache_key(query: str, limit: int, providers: str, strategy: str,
-                     config_version: int) -> str:
-    """Cache key for a search request.
-
-    ``config_version`` is part of the key so that a saved configuration change
-    (which bumps ``ConfigService.config_version``) does not keep serving
-    results produced under different provider options. External edits to
-    config files that do not bump ``config_version`` may not invalidate the
-    cache; the normal save path does bump it.
-    """
-    return _h(f"search:{query}:{limit}:{providers}:{strategy}:{config_version}")
+                     fingerprint: str) -> str:
+    """Cache key for a search request under one runtime configuration."""
+    return _h(f"search:{query}:{limit}:{providers}:{strategy}:{fingerprint}")
 
 
-def extract_cache_key(url: str, fmt: str, max_chars: int, config_version: int) -> str:
-    """Cache key for an extract request.
-
-    See :func:`search_cache_key` for the role of ``config_version``.
-    """
-    return _h(f"extract:{url}:{fmt}:{max_chars}:{config_version}")
+def extract_cache_key(url: str, fmt: str, max_chars: int, fingerprint: str) -> str:
+    """Cache key for an extract request under one runtime configuration."""
+    return _h(f"extract:{url}:{fmt}:{max_chars}:{fingerprint}")

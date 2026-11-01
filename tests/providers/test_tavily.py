@@ -31,6 +31,22 @@ async def test_search_maps_results():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_search_maps_raw_content_only_when_enabled_and_content_is_empty():
+    respx.post(f"{TAVILY}/search").mock(return_value=httpx.Response(200, json={
+        "results": [{"title": "T", "url": "https://a.com", "content": "",
+                     "raw_content": "raw body"}],
+    }))
+    enabled = make_configured({"include_raw_content": True}, capabilities=("search",))
+    items = await enabled.search("python", 3)
+    assert items[0].description == "raw body"
+
+    disabled = make_configured({}, capabilities=("search",))
+    items = await disabled.search("python", 3)
+    assert items[0].description == ""
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_search_401_raises():
     respx.post(f"{TAVILY}/search").mock(return_value=httpx.Response(401, json={"error": "bad key"}))
     with pytest.raises(ProviderError) as ei:
@@ -77,7 +93,6 @@ async def test_search_uses_configured_options():
         "topic": "news",
         "include_domains": ["a.com"],
         "exclude_domains": ["b.com"],
-        "include_answer": True,
         "include_raw_content": True,
         "days": 7,
     }, capabilities=("search",))
@@ -89,7 +104,7 @@ async def test_search_uses_configured_options():
     assert body["topic"] == "news"
     assert body["include_domains"] == ["a.com"]
     assert body["exclude_domains"] == ["b.com"]
-    assert body["include_answer"] is True
+    assert "include_answer" not in body
     assert body["include_raw_content"] is True
     assert body["days"] == 7
 
@@ -104,7 +119,7 @@ async def test_search_default_options_preserve_body():
     body = json.loads(route.calls[0].request.content)
     assert body["search_depth"] == "basic"
     assert body["topic"] == "general"
-    assert body["include_answer"] is False
+    assert "include_answer" not in body
     assert body["include_raw_content"] is False
     for key in ("include_domains", "exclude_domains", "days"):
         assert key not in body

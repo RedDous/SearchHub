@@ -64,15 +64,6 @@ class TavilyProvider(Provider):
                 group="filters",
             ),
             FieldSpec(
-                key="include_answer",
-                label="providers.fields.tavily.include_answer",
-                help="providers.fields.tavily.include_answer.help",
-                type="bool",
-                default=False,
-                capability="search",
-                group="content",
-            ),
-            FieldSpec(
                 key="include_raw_content",
                 label="providers.fields.tavily.include_raw_content",
                 help="providers.fields.tavily.include_raw_content.help",
@@ -133,7 +124,6 @@ class TavilyProvider(Provider):
             "max_results": limit,
             "search_depth": opts.search_depth,
             "topic": opts.topic,
-            "include_answer": opts.include_answer,
             "include_raw_content": opts.include_raw_content,
         }
         if opts.include_domains:
@@ -152,10 +142,15 @@ class TavilyProvider(Provider):
             if not 200 <= resp.status_code < 300:
                 self._report(key, resp.status_code)
                 raise ProviderError(self.id, f"tavily http {resp.status_code}", status=resp.status_code)
+        results = resp.json().get("results", [])
         return [
-            SearchItem(title=r.get("title", ""), url=r.get("url", ""),
-                       description=r.get("content", ""), position=i, provider=self.id)
-            for i, r in enumerate(resp.json().get("results", []))
+            SearchItem(
+                title=r.get("title", ""), url=r.get("url", ""),
+                description=(r.get("content") or (
+                    r.get("raw_content") or "" if opts.include_raw_content else "")),
+                position=i, provider=self.id,
+            )
+            for i, r in enumerate(results)
         ]
 
     async def extract(self, urls: list[str], *, fmt: str = "markdown",

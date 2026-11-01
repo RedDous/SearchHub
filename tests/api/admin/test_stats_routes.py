@@ -149,7 +149,7 @@ def test_history_full_extract_and_redaction(admin_client, caller_token):
     assert full["items"][0]["content"] == "c" * 100
 
 
-def test_availability_updated_after_real_call(admin_client, caller_token):
+def test_real_call_updates_stats_but_not_availability(admin_client, caller_token):
     from searchhub.models import SearchItem
     from searchhub.providers.ddg import DdgProvider
 
@@ -172,6 +172,8 @@ def test_availability_updated_after_real_call(admin_client, caller_token):
     finally:
         DdgProvider.search = original
     st = admin_client.get("/api/admin/config").json()["data"]["provider_status"]["ddg"]
-    assert st["status"] == "ok"
-    assert st["test"]["capability"] == "search"
-    assert st["test"]["count"] == 1
+    assert st["status"] == "untested"
+    assert st["tests"] == {}
+    providers = admin_client.get("/api/admin/stats/summary").json()["data"]["providers"]
+    ddg = next(p for p in providers if p["id"] == "ddg")
+    assert ddg["stats"]["calls"] == 1

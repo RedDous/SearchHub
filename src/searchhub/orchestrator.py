@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 
 from searchhub.config import ConfigService
-from searchhub.engine.cache_keys import extract_cache_key, search_cache_key
+from searchhub.engine.cache_keys import config_fingerprint, extract_cache_key, search_cache_key
 from searchhub.engine.merge import merge_extract, merge_search
 from searchhub.engine.strategies import Outcome, fanout, primary_fallback, rotation
 from searchhub.models import (ExtractItem, ExtractResponse, SearchData,
@@ -38,7 +38,7 @@ class SearchHubEngine:
 
     def record_test(self, provider_id: str, capability: str, *, success: bool,
                     count: int, took_ms: float, error: str | None = None) -> None:
-        """真实调用或连接测试后记录可用性快照（按 capability 分别记录）。"""
+        """Record a manual or auto-retest probe (not ordinary traffic)."""
         entry: dict[str, Any] = {"success": bool(success), "at": time.time(),
                                  "capability": capability, "count": count,
                                  "took_ms": round(took_ms, 1)}
@@ -74,12 +74,12 @@ class SearchHubEngine:
                      strategy: str | None = None, cache: bool = True,
                      timeout: float | None = None, *, token_name: str = "") -> SearchResponse:
         start = time.monotonic()
-        cfg = self.config.get()
         providers_list = self._filter(self._registry_for("search"), providers)
+        cfg = self.config.get()
         mode = strategy or cfg.strategy.default_mode
         t = timeout or cfg.strategy.timeout_s
         cache_key = search_cache_key(query, limit, providers or "all", mode,
-                                     self.config.config_version)
+                                     config_fingerprint(cfg))
         outcomes: list[Outcome] = []
         resp: SearchResponse | None = None
         if not providers_list:
@@ -107,9 +107,6 @@ class SearchHubEngine:
                     outcomes = [await primary_fallback(providers_list, "search", t, call)]
             for o in outcomes:
                 self._record(o.provider_id, o.error is None, o.took_ms)
-                self.record_test(o.provider_id, "search", success=o.error is None,
-                                 count=len(o.items) if o.items else 0, took_ms=o.took_ms,
-                                 error=o.error)
             if all(o.error for o in outcomes):
                 details = "; ".join(f"{o.provider_id}: {o.error}" for o in outcomes)
                 resp = SearchResponse(success=False, data=SearchData(web=[]), error=details,
@@ -141,11 +138,11 @@ class SearchHubEngine:
                       strategy: str | None = None, cache: bool = True,
                       timeout: float | None = None, *, token_name: str = "") -> ExtractResponse:
         start = time.monotonic()
+        providers_list = self._filter(self._registry_for("extract"), None)
         cfg = self.config.get()
         # Snapshot once per request: lookups and writes must use the same
-        # version even if config is saved while providers are running.
-        config_version = self.config.config_version
-        providers_list = self._filter(self._registry_for("extract"), None)
+        # fingerprint even if config is saved while providers are running.
+        fingerprint = config_fingerprint(cfg)
         resp: ExtractResponse | None = None
         if not providers_list:
             resp = ExtractResponse(success=False,
@@ -160,7 +157,7 @@ class SearchHubEngine:
         if self.cache and cache:
             for url in urls:
                 hit = await self.cache.get(extract_cache_key(
-                    url, fmt, max_chars, config_version))
+                    url, fmt, max_chars, fingerprint))
                 if hit is not None:
                     final_items.append(ExtractItem(**json.loads(hit)))
                     cached_any = True
@@ -182,16 +179,13 @@ class SearchHubEngine:
                     outcomes = [await primary_fallback(providers_list, "extract", t, call)]
             for o in outcomes:
                 self._record(o.provider_id, o.error is None, o.took_ms)
-                self.record_test(o.provider_id, "extract", success=o.error is None,
-                                 count=len(o.items) if o.items else 0, took_ms=o.took_ms,
-                                 error=o.error)
             merged = merge_extract(outcomes, remaining, self._registry)
             if self.cache and cache:
                 for item in merged:
                     if item.error is None:
                         await self.cache.put(
                             extract_cache_key(item.url, fmt, max_chars,
-                                              config_version),
+                                              fingerprint),
                             json.dumps(item.model_dump()), cfg.cache.extract_ttl_s)
             final_items.extend(merged)
         if resp is None:

@@ -85,11 +85,16 @@ def test_tavily_defaults():
     assert d["topic"] == "general"
     assert d["include_domains"] == []
     assert d["exclude_domains"] == []
-    assert d["include_answer"] is False
+    assert "include_answer" not in d
     assert d["include_raw_content"] is False
     assert d["days"] is None
     assert d["extract_depth"] == "basic"
     assert d["include_images"] is False
+
+
+def test_tavily_include_answer_is_not_accepted_in_v1():
+    with pytest.raises(ValidationError):
+        TavilyOptions(include_answer=True)
 
 
 def test_jina_defaults():

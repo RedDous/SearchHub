@@ -14,6 +14,11 @@ from searchhub.providers.schema import (
 )
 
 
+def _result_content(result: dict) -> str:
+    return (result.get("text") or result.get("summary")
+            or " ".join(result.get("highlights") or []))
+
+
 class ExaProvider(Provider):
     id = "exa"
     capabilities = frozenset({"search", "extract"})
@@ -176,7 +181,7 @@ class ExaProvider(Provider):
             items.append(SearchItem(
                 title=r.get("title", ""),
                 url=r.get("url", ""),
-                description=self.truncate(r.get("text") or "", 300),
+                description=self.truncate(_result_content(r), 300),
                 position=i,
                 provider=self.id,
                 published_at=r.get("publishedDate"),
@@ -186,7 +191,7 @@ class ExaProvider(Provider):
     def _map_extract(self, data: dict, max_chars: int) -> list[ExtractItem]:
         items = []
         for r in data.get("results", []):
-            raw = r.get("text") or ""
+            raw = _result_content(r)
             items.append(ExtractItem(
                 url=r.get("url", ""),
                 title=r.get("title", ""),

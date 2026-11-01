@@ -49,7 +49,6 @@ class TavilyOptions(_Options):
     topic: TopicTavily = "general"
     include_domains: list[str] = Field(default_factory=list)
     exclude_domains: list[str] = Field(default_factory=list)
-    include_answer: bool = False
     include_raw_content: bool = False
     days: int | None = None
     extract_depth: SearchDepthTavily = "basic"

@@ -107,7 +107,7 @@ export interface ProviderTest {
   at: number
 }
 
-export type ProviderStatusKind = 'ok' | 'failed' | 'untested' | 'missing_key' | 'missing_base_url'
+export type ProviderStatusKind = 'ok' | 'failed' | 'untested' | 'invalid_config' | 'missing_key' | 'missing_base_url'
 
 export interface ProviderStatus {
   status: ProviderStatusKind

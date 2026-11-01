@@ -197,7 +197,6 @@ class ProviderSchema:
 | tavily | `topic` | enum | `general` | search | search | `general` / `news` / `finance` |
 | tavily | `include_domains` | string_list | `[]` | search | filters | — |
 | tavily | `exclude_domains` | string_list | `[]` | search | filters | — |
-| tavily | `include_answer` | bool | `false` | search | content | — |
 | tavily | `include_raw_content` | bool | `false` | search | content | — |
 | tavily | `days` | int | `null` | search | filters | 高级，仅 news 有意义 |
 | tavily | `extract_depth` | enum | `basic` | extract | extract | `basic` / `advanced` |

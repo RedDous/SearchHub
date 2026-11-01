@@ -115,6 +115,31 @@ def test_provider_config_allows_type_different_from_id():
     assert p.type == "exa"
 
 
+def test_provider_id_rejects_leading_digit():
+    with pytest.raises(ValidationError):
+        ProviderConfig(id="1exa", type="exa", capabilities=["search"])
+
+
+def test_duplicate_canonical_key_prefixes_rejected_on_model_validation():
+    with pytest.raises(ValidationError, match="canonical key prefix"):
+        AppConfig(providers=[
+            ProviderConfig(id="exa-work", type="exa", capabilities=["search"]),
+            ProviderConfig(id="exa_work", type="exa", capabilities=["extract"]),
+        ])
+
+
+def test_duplicate_canonical_key_prefixes_rejected_on_save(data_dir):
+    cs = ConfigService(data_dir)
+    cs.load()
+    cfg = cs.get()
+    cfg.providers = [
+        ProviderConfig(id="exa-work", type="exa", capabilities=["search"]),
+        ProviderConfig(id="exa_work", type="exa", capabilities=["extract"]),
+    ]
+    with pytest.raises(ValueError, match="canonical key prefix"):
+        cs.save_config(cfg)
+
+
 def test_legacy_config_without_type_loads(data_dir):
     data_dir.mkdir(parents=True, exist_ok=True)
     (data_dir / "config.yaml").write_text(

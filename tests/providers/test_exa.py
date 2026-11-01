@@ -35,6 +35,17 @@ async def test_search_maps_results():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_search_maps_summary_when_text_is_empty():
+    respx.post(f"{EXA}/search").mock(return_value=httpx.Response(200, json={
+        "results": [{"title": "T", "url": "https://a.com", "text": "",
+                     "summary": "summary body"}],
+    }))
+    items = await make_provider().search("python", 3)
+    assert items[0].description == "summary body"
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_search_429_raises_provider_error():
     respx.post(f"{EXA}/search").mock(return_value=httpx.Response(429, json={"error": "rate"}))
     with pytest.raises(ProviderError) as ei:
@@ -63,6 +74,18 @@ async def test_extract_maps_contents_and_failures():
     assert by_url["https://a.com"].content == "x" * 100
     assert by_url["https://a.com"].raw_content == "x" * 500
     assert by_url["https://bad.com"].error == "not found"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_extract_maps_highlights_when_text_and_summary_are_empty():
+    respx.post(f"{EXA}/contents").mock(return_value=httpx.Response(200, json={
+        "results": [{"url": "https://a.com", "title": "AT", "text": "",
+                     "summary": "", "highlights": ["first", "second"]}],
+    }))
+    items = await make_provider().extract(["https://a.com"])
+    assert items[0].content == "first second"
+    assert items[0].raw_content == "first second"
 
 
 def make_configured(options, capabilities=("search", "extract")):

@@ -98,7 +98,7 @@ git pull && docker compose -f docker-compose.yml -f docker-compose.build.yml up 
 | 供应商 | 能力 | 鉴权 / 端点 | v1 可配置字段 |
 |---|---|---|---|
 | exa | search + extract | 请求头 `x-api-key`，Key 必填；端点固定 `https://api.exa.ai` | `search_type`、`category`、`include_domains`、`exclude_domains`、`start_published_date`（高级）、`end_published_date`（高级）、`include_text`、`include_highlights`、`include_summary` |
-| tavily | search + extract | Bearer，Key 必填（前缀 `tvly-`）；端点固定 `https://api.tavily.com` | `search_depth`、`topic`、`include_domains`、`exclude_domains`、`include_answer`、`include_raw_content`、`days`（高级）、`extract_depth`、`include_images` |
+| tavily | search + extract | Bearer，Key 必填（前缀 `tvly-`）；端点固定 `https://api.tavily.com` | `search_depth`、`topic`、`include_domains`、`exclude_domains`、`include_raw_content`、`days`（高级）、`extract_depth`、`include_images` |
 | ddg（DuckDuckGo） | search | 免 Key | `region`、`safesearch`、`timelimit`、`backend`（高级） |
 | searxng | search | 免 Key；`base_url` 必填（自建实例地址） | `categories`、`language`、`safesearch`、`time_range`、`engines`（高级） |
 | jina | extract | 可选 Bearer（前缀 `jina_`）；默认端点 `https://r.jina.ai/`，可覆盖 | `target_selector`、`wait_for_selector`、`timeout_s`（1–120 秒，高级）、`no_cache`（高级） |

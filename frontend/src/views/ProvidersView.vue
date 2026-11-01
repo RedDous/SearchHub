@@ -106,6 +106,7 @@ function statusInfo(status: ProviderStatus | undefined, configured: boolean): { 
     ok: ['success', t('providers.testOkShort')],
     failed: ['error', t('providers.testFailShort')],
     untested: ['default', t('providers.testNever')],
+    invalid_config: ['error', t('providers.invalidConfig')],
     missing_key: ['error', t('providers.missingKey')],
     missing_base_url: ['error', t('providers.missingBaseUrl')],
   }

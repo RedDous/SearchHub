@@ -103,8 +103,9 @@ def test_tavily_schema():
     assert s.endpoint.default == "https://api.tavily.com"
     assert {f.key for f in s.fields} >= {
         "search_depth", "topic", "include_domains", "exclude_domains",
-        "include_answer", "include_raw_content", "extract_depth",
+        "include_raw_content", "extract_depth",
     }
+    assert "include_answer" not in {f.key for f in s.fields}
     assert {t.capability for t in s.tests} == {"search", "extract"}
     assert PROVIDER_CLASSES["tavily"].options_model is TavilyOptions
 

@@ -462,6 +462,7 @@ const badgeMap: Record<string, { type: string; text: string; title: () => string
   ok: { type: 'success', text: t('providers.testOkShort'), title: testSummary },
   failed: { type: 'error', text: t('providers.testFailShort'), title: testSummary },
   untested: { type: 'default', text: t('providers.testNever'), title: () => '' },
+  invalid_config: { type: 'error', text: t('providers.invalidConfig'), title: () => '' },
   missing_key: { type: 'error', text: t('providers.missingKey'), title: () => '' },
   missing_base_url: { type: 'error', text: t('providers.missingBaseUrl'), title: () => '' },
 }

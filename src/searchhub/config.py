@@ -47,7 +47,7 @@ class KeyPoolConfig(BaseModel):
 
 
 class ProviderConfig(BaseModel):
-    id: str
+    id: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]*$")
     type: str = ""
     capabilities: list[str]
     enabled: bool = True
@@ -73,6 +73,16 @@ def _duplicate_provider_id(providers: list[ProviderConfig]) -> str | None:
         if p.id in seen:
             return p.id
         seen.add(p.id)
+    return None
+
+
+def _duplicate_provider_key_prefix(providers: list[ProviderConfig]) -> str | None:
+    seen: set[str] = set()
+    for p in providers:
+        prefix = key_prefix_for(p.id)
+        if prefix in seen:
+            return prefix
+        seen.add(prefix)
     return None
 
 
@@ -123,6 +133,9 @@ class AppConfig(BaseModel):
         duplicate = _duplicate_provider_id(self.providers)
         if duplicate is not None:
             raise ValueError(f"duplicate provider id: {duplicate!r}")
+        duplicate_prefix = _duplicate_provider_key_prefix(self.providers)
+        if duplicate_prefix is not None:
+            raise ValueError(f"duplicate canonical key prefix: {duplicate_prefix!r}")
         return self
 
     def provider(self, provider_id: str) -> ProviderConfig | None:
@@ -240,6 +253,9 @@ class ConfigService:
         duplicate = _duplicate_provider_id(cfg.providers)
         if duplicate is not None:
             raise ValueError(f"duplicate provider id: {duplicate!r}")
+        duplicate_prefix = _duplicate_provider_key_prefix(cfg.providers)
+        if duplicate_prefix is not None:
+            raise ValueError(f"duplicate canonical key prefix: {duplicate_prefix!r}")
         self._write_yaml(cfg)
         self._cfg = cfg
 
