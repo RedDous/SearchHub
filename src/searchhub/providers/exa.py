@@ -123,12 +123,38 @@ class ExaProvider(Provider):
     CONTENTS_URL = "https://api.exa.ai/contents"
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
-        body = {"query": query, "num_results": limit, "type": "auto", "contents": {"text": True}}
+        opts = self.options
+        body: dict[str, Any] = {
+            "query": query,
+            "num_results": limit,
+            "type": opts.search_type,
+            "contents": {
+                "text": opts.include_text,
+                "highlights": opts.include_highlights,
+                "summary": opts.include_summary,
+            },
+        }
+        if opts.category:
+            body["category"] = opts.category
+        if opts.include_domains:
+            body["includeDomains"] = opts.include_domains
+        if opts.exclude_domains:
+            body["excludeDomains"] = opts.exclude_domains
+        if opts.start_published_date:
+            body["startPublishedDate"] = opts.start_published_date
+        if opts.end_published_date:
+            body["endPublishedDate"] = opts.end_published_date
         return await self._run(self.SEARCH_URL, body, self._map_search, limit=limit)
 
     async def extract(self, urls: list[str], *, fmt: str = "markdown",
                       max_chars: int = 15000) -> list[ExtractItem]:
-        body = {"urls": urls, "text": True}
+        opts = self.options
+        body: dict[str, Any] = {
+            "urls": urls,
+            "text": opts.include_text,
+            "highlights": opts.include_highlights,
+            "summary": opts.include_summary,
+        }
         return await self._run(self.CONTENTS_URL, body, self._map_extract, max_chars=max_chars)
 
     async def _run(self, url: str, body: dict, mapper, **kw):

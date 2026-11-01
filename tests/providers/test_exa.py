@@ -1,3 +1,5 @@
+import json
+
 import httpx
 import respx
 import pytest
@@ -61,3 +63,87 @@ async def test_extract_maps_contents_and_failures():
     assert by_url["https://a.com"].content == "x" * 100
     assert by_url["https://a.com"].raw_content == "x" * 500
     assert by_url["https://bad.com"].error == "not found"
+
+
+def make_configured(options, capabilities=("search", "extract")):
+    cfg = ProviderConfig(id="exa", type="exa", capabilities=list(capabilities),
+                         options=options)
+    return ExaProvider(cfg, ["k1"], httpx.AsyncClient())
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_search_uses_configured_options():
+    route = respx.post(f"{EXA}/search").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    provider = make_configured({
+        "search_type": "deep",
+        "category": "research paper",
+        "include_domains": ["a.com"],
+        "exclude_domains": ["b.com"],
+        "start_published_date": "2024-01-01",
+        "end_published_date": "2024-12-31",
+        "include_text": True,
+        "include_highlights": True,
+        "include_summary": True,
+    }, capabilities=("search",))
+    await provider.search("python", 3)
+    body = json.loads(route.calls[0].request.content)
+    assert body["type"] == "deep"
+    assert body["category"] == "research paper"
+    assert body["includeDomains"] == ["a.com"]
+    assert body["excludeDomains"] == ["b.com"]
+    assert body["startPublishedDate"] == "2024-01-01"
+    assert body["endPublishedDate"] == "2024-12-31"
+    assert body["contents"] == {"text": True, "highlights": True, "summary": True}
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_search_default_options_preserve_body():
+    route = respx.post(f"{EXA}/search").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    await make_configured({}, capabilities=("search",)).search("python", 3)
+    body = json.loads(route.calls[0].request.content)
+    assert body["query"] == "python"
+    assert body["num_results"] == 3
+    assert body["type"] == "auto"
+    assert body["contents"] == {"text": True, "highlights": False, "summary": False}
+    for key in ("category", "includeDomains", "excludeDomains",
+                "startPublishedDate", "endPublishedDate"):
+        assert key not in body
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_extract_uses_configured_options():
+    route = respx.post(f"{EXA}/contents").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    provider = make_configured({
+        "include_text": False,
+        "include_highlights": True,
+        "include_summary": True,
+    }, capabilities=("extract",))
+    await provider.extract(["https://a.com"])
+    body = json.loads(route.calls[0].request.content)
+    assert body["urls"] == ["https://a.com"]
+    assert body["text"] is False
+    assert body["highlights"] is True
+    assert body["summary"] is True
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_extract_default_options_preserve_body():
+    route = respx.post(f"{EXA}/contents").mock(
+        return_value=httpx.Response(200, json={"results": []})
+    )
+    await make_configured({}, capabilities=("extract",)).extract(["https://a.com"])
+    body = json.loads(route.calls[0].request.content)
+    assert body["urls"] == ["https://a.com"]
+    assert body["text"] is True
+    assert body["highlights"] is False
+    assert body["summary"] is False

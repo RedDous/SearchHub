@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from searchhub.models import ExtractItem, SearchItem
 from searchhub.providers.base import Provider, ProviderError
 from searchhub.providers.options import TavilyOptions
@@ -125,7 +127,21 @@ class TavilyProvider(Provider):
     EXTRACT_URL = "https://api.tavily.com/extract"
 
     async def search(self, query: str, limit: int) -> list[SearchItem]:
-        body = {"query": query, "max_results": limit, "search_depth": "basic"}
+        opts = self.options
+        body: dict[str, Any] = {
+            "query": query,
+            "max_results": limit,
+            "search_depth": opts.search_depth,
+            "topic": opts.topic,
+            "include_answer": opts.include_answer,
+            "include_raw_content": opts.include_raw_content,
+        }
+        if opts.include_domains:
+            body["include_domains"] = opts.include_domains
+        if opts.exclude_domains:
+            body["exclude_domains"] = opts.exclude_domains
+        if opts.days is not None:
+            body["days"] = opts.days
         async with self._use_key() as key:
             headers = {"Authorization": f"Bearer {key}"}
             try:
@@ -144,7 +160,13 @@ class TavilyProvider(Provider):
 
     async def extract(self, urls: list[str], *, fmt: str = "markdown",
                       max_chars: int = 15000) -> list[ExtractItem]:
-        body = {"urls": urls, "format": fmt}
+        opts = self.options
+        body: dict[str, Any] = {
+            "urls": urls,
+            "format": fmt,
+            "extract_depth": opts.extract_depth,
+            "include_images": opts.include_images,
+        }
         async with self._use_key() as key:
             headers = {"Authorization": f"Bearer {key}"}
             try:
