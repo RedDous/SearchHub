@@ -37,6 +37,17 @@ async def test_overwrite_extends(repo):
 
 @pytest.mark.asyncio
 async def test_cache_keys_stable_and_distinct():
-    assert search_cache_key("q", 5, "all", "fanout") == search_cache_key("q", 5, "all", "fanout")
-    assert search_cache_key("q", 5, "all", "fanout") != search_cache_key("q", 5, "all", "rotation")
-    assert extract_cache_key("https://a.com", "markdown", 1000) != extract_cache_key("https://a.com", "text", 1000)
+    assert search_cache_key("q", 5, "all", "fanout", 1) == \
+        search_cache_key("q", 5, "all", "fanout", 1)
+    assert search_cache_key("q", 5, "all", "fanout", 1) != \
+        search_cache_key("q", 5, "all", "rotation", 1)
+    assert extract_cache_key("https://a.com", "markdown", 1000, 1) != \
+        extract_cache_key("https://a.com", "text", 1000, 1)
+
+
+def test_config_version_changes_keys():
+    a = search_cache_key("q", 5, "all", "fanout", 1)
+    b = search_cache_key("q", 5, "all", "fanout", 2)
+    assert a != b
+    assert extract_cache_key("https://a.com", "markdown", 1000, 1) != \
+        extract_cache_key("https://a.com", "markdown", 1000, 2)

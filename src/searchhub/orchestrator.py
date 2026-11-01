@@ -78,7 +78,8 @@ class SearchHubEngine:
         providers_list = self._filter(self._registry_for("search"), providers)
         mode = strategy or cfg.strategy.default_mode
         t = timeout or cfg.strategy.timeout_s
-        cache_key = search_cache_key(query, limit, providers or "all", mode)
+        cache_key = search_cache_key(query, limit, providers or "all", mode,
+                                     self.config.config_version)
         outcomes: list[Outcome] = []
         resp: SearchResponse | None = None
         if not providers_list:
@@ -155,7 +156,8 @@ class SearchHubEngine:
         outcomes: list[Outcome] = []
         if self.cache and cache:
             for url in urls:
-                hit = await self.cache.get(extract_cache_key(url, fmt, max_chars))
+                hit = await self.cache.get(extract_cache_key(
+                    url, fmt, max_chars, self.config.config_version))
                 if hit is not None:
                     final_items.append(ExtractItem(**json.loads(hit)))
                     cached_any = True
@@ -184,8 +186,10 @@ class SearchHubEngine:
             if self.cache and cache:
                 for item in merged:
                     if item.error is None:
-                        await self.cache.put(extract_cache_key(item.url, fmt, max_chars),
-                                             json.dumps(item.model_dump()), cfg.cache.extract_ttl_s)
+                        await self.cache.put(
+                            extract_cache_key(item.url, fmt, max_chars,
+                                              self.config.config_version),
+                            json.dumps(item.model_dump()), cfg.cache.extract_ttl_s)
             final_items.extend(merged)
         if resp is None:
             resp = ExtractResponse(success=True, data=final_items,
